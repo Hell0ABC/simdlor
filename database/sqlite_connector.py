@@ -8,16 +8,12 @@ from typing import Any, Mapping, Sequence
 
 """
 TODO:
-    Initiate DB connect with closing
-    Get tables and values
-    Data modification
-    Drop and rename tables
-    Remove hashes like self.tables, just call for data
-"""
 
-try:  # Пытаемся использовать логгер Kivy
+"""
+#Логгер Kivy или стандартный
+try:
     from kivy.logger import Logger
-except ImportError:  # Фоллбэк на стандартный logging
+except ImportError:
     Logger = logging.getLogger("sqlite_connector")
     if not Logger.handlers:
         handler = logging.StreamHandler()
@@ -25,6 +21,7 @@ except ImportError:  # Фоллбэк на стандартный logging
         Logger.addHandler(handler)
     Logger.setLevel(logging.INFO)
 
+#Конвертер даты для предотвращения ValueError: invalid literal for int() with base 10: b'12.04.2021'
 def _flexible_date_converter(value: bytes):
     text = value.decode()
     if not text:
@@ -35,7 +32,7 @@ def _flexible_date_converter(value: bytes):
         except ValueError:
             continue
     logging.getLogger("sqlite_connector").warning("Unexpected DATE format: %s", text)
-    return text  # отдаём строку, если форматы не подошли
+    return text 
 
 sqlite3.register_converter("DATE", _flexible_date_converter)
 
@@ -150,7 +147,7 @@ class Database:
         sql = f'UPDATE "{table}" SET {assignments} WHERE {where}'
         bind_params = tuple(data.values())
         if isinstance(params, Mapping):
-            raise ValueError("Для именованных параметров используйте синтаксис :name и объедините словари вручную.")
+            raise ValueError("For named parameters, use the :name syntax and concatenate the dictionaries manually.")
         bind_params += tuple(params)
         Logger.debug("DB: update %s set=%s where=%s params=%s", table, data, where, bind_params)
         cur = self._conn.execute(sql, bind_params)
@@ -211,18 +208,18 @@ class Database:
                 try:
                     self._conn.execute(sql)
                 except sqlite3.DatabaseError:
-                    Logger.warning("DB: pragma %s не поддерживается", key)
+                    Logger.warning("DB: pragma %s isn't supported", key)
 
     def _validate_table(self, table: str) -> str:
         if not table or not self._IDENT_RE.match(table):
-            raise ValueError(f"Некорректное имя таблицы: {table!r}")
+            raise ValueError(f"Incorrect table name: {table!r}")
         return table
 
     def _validate_column(self, column: str, table: str) -> str:
         if column == "*":
             return column
         if not column or not self._IDENT_RE.match(column):
-            raise ValueError(f"Некорректное имя колонки: {column!r}")
+            raise ValueError(f"Incorrect coumn name: {column!r}")
         return column
 
     def __del__(self) -> None:
@@ -234,7 +231,7 @@ class Database:
 
 if __name__ == "__main__":
     connector = Database("hospital.db")
-    
+
     print("Tables:", connector.list_tables())
     print("Describe 'patients':", connector.describe_table("patients"))
     print("Fetching rows from 'patients':", connector.fetch_rows("patients"))
