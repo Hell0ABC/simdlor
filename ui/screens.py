@@ -9,7 +9,8 @@ from ui.widgets import ConnectForm
 from app.config import BASE_DIR
 """
 TODO:
-    
+    Remote DB screen
+    DatabaseScreen
 """
 
 class HomeScreen(MDScreen):
@@ -41,6 +42,7 @@ class HomeScreen(MDScreen):
         self.manager.current = "database"
 
     # --- Remote DB ---
+    # BROKEN
     def open_remote_dialog(self):
         if self.dialog is None:
             self.dialog = MDDialog(
@@ -66,7 +68,6 @@ class HomeScreen(MDScreen):
         engine = params["engine"]
         app = self.get_running_app()
 
-        # здесь просто заглушки — подключай нужный драйвер
         if engine == "MySQL":
             # import mysql.connector
             # conn = mysql.connector.connect(host=..., port=..., user=..., password=..., database=..., ssl_disabled=not params["ssl"])
@@ -100,6 +101,7 @@ class LoadingScreen(MDScreen):
         if self.ids.progress_bar.value == 100:
             self.manager.transition.direction = 'up'
 
+# BROKEN
 class DatabaseScreen(MDScreen):
     def __init__(self, db, **kwargs):
         super().__init__(**kwargs)
@@ -123,6 +125,7 @@ class DatabaseScreen(MDScreen):
             btn.bind(on_release=self.button_press)
             self.ids.db_box_layout.add_widget(btn)
 
+#Not tested
 class TableScreen(MDScreen):
     def __init__(self, db, **kw):
         super().__init__(**kw)
