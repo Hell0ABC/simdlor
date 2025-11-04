@@ -1,0 +1,85 @@
+#:kivy 2.1.0
+#:import Factory kivy.factory.Factory
+#:import MDDialog kivymd.uix.dialog
+
+<ConnectForm>:
+    orientation: "vertical"
+    spacing: "8dp"
+    padding: "8dp"
+
+    MDBoxLayout:
+        size_hint_y: None
+        height: "48dp"
+        MDButton:
+            id: engine_btn
+            style: "outlined"
+            on_release: root.open_menu()
+            MDButtonText:
+                id: engine_btn_text
+                text: root.engine
+
+    MDTextField:
+        id: host
+        hint_text: "Host"
+        text: "localhost"
+        helper_text: "Hostname or IP"
+        helper_text_mode: "on_focus"
+
+    MDTextField:
+        id: port
+        hint_text: "Port"
+        text: "3306"  # будет обновляться при выборе движка
+        helper_text: "Default: MySQL 3306 / Postgres 5432 / MSSQL 1433"
+        helper_text_mode: "on_focus"
+        input_filter: "int"
+
+    MDTextField:
+        id: database
+        hint_text: "Database name"
+
+    MDTextField:
+        id: user
+        hint_text: "User"
+
+    MDTextField:
+        id: password
+        hint_text: "Password"
+        password: True
+
+    MDBoxLayout:
+        size_hint_y: None
+        height: "36dp"
+        spacing: "8dp"
+        MDLabel:
+            text: "Use SSL"
+            halign: "left"
+        MDSwitch:
+            id: ssl
+            active: False
+
+
+<Content>
+    orientation: "vertical"
+    spacing: "12dp"
+    size_hint_y: None
+    height: "40dp"
+
+    MDTextField:
+        id: delete_ti
+        hint_text: 'Enter row ID'
+        on_text_validate:
+            Factory.TableScreen().delete_row(self.text)
+            app.dialog.dismiss()
+        multiline: False
+
+<SavePopup@MDDialog>:
+    title: 'Save'
+    size_hint: .4, .4
+    text: 'Saved!'
+
+<DeletePopup@MDDialog>:
+    id: delete_popup
+    title: 'Delete'
+    text: 'Delete'
+    size_hint: .4, .4
+    content_cls: Content

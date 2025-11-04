@@ -1,0 +1,80 @@
+#:kivy 2.1.0
+
+<HomeScreen>:
+    name: "home"
+    MDBoxLayout:
+        orientation: "vertical"
+        padding: "16dp"
+        spacing: "12dp"
+        MDLabel:
+            text: "Choose a database source"
+            halign: "center"
+            role: "large"
+        MDButton:
+            style: "filled"
+            size_hint: 1, None
+            height: "48dp"
+            on_release: root.open_file_manager()
+            MDButtonText:
+                text: "Open local DB"
+        MDButton:
+            style: "outlined"
+            size_hint: 1, None
+            height: "48dp"
+            on_release: root.open_remote_dialog()
+            MDButtonText:
+                text: "Connect to remote DB"
+
+<LoadingScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        MDLabel:
+            text: 'Loading...'
+        ProgressBar:
+            id: progress_bar
+            value: 0
+            min: 0
+            max: 100
+            pos_hint: {'x': .1}
+            size_hint_x: .8
+
+<DatabaseScreen>:
+    id: database_screen
+    MDBoxLayout:
+        id: db_box_layout
+        orientation: 'vertical'
+
+
+
+<TableScreen>:
+    id: table_screen
+    MDBoxLayout:
+        id: table_box_layout
+        GridLayout:
+            id: table_grid_layout
+            size_hint: .8, 1
+            cols: 3
+        FloatLayout:
+            size_hint: .2, 1
+            MDIconButton:
+                size_hint: .9, .1
+                pos_hint: {'top': 0.3, 'right': 1}
+                icon: 'delete'
+                icon_size: '40sp'
+                on_press: app.show_confirmation_dialog()
+            MDIconButton:
+                size_hint: .9, .1
+                pos_hint: {'top': 0.2, 'right': 1}
+                icon: 'content-save'
+                icon_size: '40sp'
+                on_press:
+                    root.pressed_button()
+                    Factory.SavePopup().open()
+            MDIconButton:
+                size_hint: .9, .1
+                pos_hint: {'top': 0.1, 'right': 1}
+                icon: 'arrow-left'
+                icon_size: '40sp'
+                on_press:
+                    root.manager.transition.direction = 'right'
+                    root.manager.current = 'database'
