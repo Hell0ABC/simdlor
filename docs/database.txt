@@ -1,0 +1,16 @@
+API Overview
+
+Класс Database работает с готовым файлом SQLite: при создании проверяет путь, включает foreign_keys и WAL, использует sqlite3.Row для словарного доступа.
+Большинство методов автоматически коммитят изменения; дополнительные commit()/rollback(), пригодятся при сложных сценариях.
+Все SQL‑значения передаются параметрами, поэтому в where используйте плейсхолдеры и передавайте params.
+Основные методы
+
+list_tables(): без аргументов; возвращает list[str] с именами таблиц (кроме служебных).
+describe_table(table): вход — имя таблицы str; выход — list[dict] с колонками (cid, name, type, notnull, dflt_value, pk); ValueError, если таблица не найдена.
+fetch_rows(table, columns=None, where=None, params=None, order_by=None, limit=None, offset=None): отдаёт list[dict]; columns и order_by — последовательности имён; where — SQL-условие с плейсхолдерами; params — кортеж/список или словарь.
+insert_row(table, data): data — Mapping[str, Any] с колонками и значениями; возвращает lastrowid; ValueError, если data пусто.
+update_rows(table, data, *, where, params): обновляет записи по условию; возвращает количество изменённых строк; params — последовательность значений для where.
+delete_rows(table, *, where, params): удаляет записи по условию; возвращает число удалённых строк.
+drop_table(table): удаляет указанную таблицу (если существует).
+transaction(): контекстный менеджер; на исключении делает rollback, иначе commit.
+close(): закрывает соединение; вызывайте в конце работы или используйте with closing(Database(...)).
