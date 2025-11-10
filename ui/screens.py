@@ -7,11 +7,7 @@ from kivymd.uix.button import MDButton, MDButtonText
 
 from ui.widgets import ConnectForm
 from app.config import BASE_DIR
-"""
-TODO:
-    Remote DB screen
-    DatabaseScreen
-"""
+
 
 class HomeScreen(MDScreen):
     dialog = None
@@ -32,6 +28,7 @@ class HomeScreen(MDScreen):
         self.fm.close()
 
     def _on_pick(self, path: str):
+        # TODO Переключение на экран БД
         if not path.lower().endswith(".db"):
             self._toast("Pick a *.db file")
             return
@@ -42,7 +39,7 @@ class HomeScreen(MDScreen):
         self.manager.current = "database"
 
     # --- Remote DB ---
-    # BROKEN
+    # TODO Продумать логику подключения
     def open_remote_dialog(self):
         if self.dialog is None:
             self.dialog = MDDialog(
@@ -69,17 +66,11 @@ class HomeScreen(MDScreen):
         app = self.get_running_app()
 
         if engine == "MySQL":
-            # import mysql.connector
-            # conn = mysql.connector.connect(host=..., port=..., user=..., password=..., database=..., ssl_disabled=not params["ssl"])
             pass
         elif engine == "PostgreSQL":
-            # import psycopg2
-            # conn = psycopg2.connect(host=..., port=..., user=..., password=..., dbname=...)
             pass
         elif engine == "MSSQL":
-            # import pyodbc
-            # conn = pyodbc.connect("DRIVER={ODBC Driver 18 for SQL Server};SERVER=host,port;DATABASE=db;UID=user;PWD=pwd;Encrypt=yes/no;TrustServerCertificate=yes/no;")
-            pass
+           pass
         else:
             self._toast("Unsupported engine")
             return

@@ -7,11 +7,6 @@ from kivymd.uix.button import MDButton, MDButtonText
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.selectioncontrol import MDSwitch
 
-"""
-TODO:
-    
-"""
-
 class ConnectForm(BoxLayout):
     engine = StringProperty("MySQL")
     ssl = BooleanProperty(False)
