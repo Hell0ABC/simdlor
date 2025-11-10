@@ -2,8 +2,16 @@ from kivymd.uix.label import MDLabel
 from ui.widgets import ValueInput
 
 from kivymd.uix.screen import MDScreen
-from kivymd.uix.dialog import MDDialog
+from kivymd.uix.dialog import (
+    MDDialog,
+    MDDialogButtonContainer,
+    MDDialogContentContainer,
+    MDDialogHeadlineText,
+)
 from kivymd.uix.button import MDButton, MDButtonText
+from kivy.uix.widget import Widget
+from kivy.uix.scrollview import ScrollView
+from kivy.metrics import dp
 
 from ui.widgets import ConnectForm
 from app.config import BASE_DIR
@@ -11,6 +19,7 @@ from app.config import BASE_DIR
 
 class HomeScreen(MDScreen):
     dialog = None
+    _connect_form = None
 
     def on_pre_enter(self, *args):
         # preparing file manager
@@ -41,26 +50,43 @@ class HomeScreen(MDScreen):
     # --- Remote DB ---
     # TODO Продумать логику подключения
     def open_remote_dialog(self):
+        if self._connect_form is None:
+            self._connect_form = ConnectForm()
+
         if self.dialog is None:
+            form_scroll = ScrollView(
+                size_hint=(1, None),
+                height=dp(360),
+                do_scroll_x=False,
+                bar_width="2dp",
+            )
+            form_scroll.add_widget(self._connect_form)
+
             self.dialog = MDDialog(
-                title="Connect to remote DB",
-                type="custom",
-                content_cls=ConnectForm(),
-                buttons=[
+                MDDialogHeadlineText(text="Connect to remote DB"),
+                MDDialogContentContainer(
+                    form_scroll,
+                    orientation="vertical",
+                ),
+                MDDialogButtonContainer(
+                    Widget(),
                     MDButton(
                         MDButtonText(text="Cancel"),
+                        style="text",
                         on_release=lambda *_: self.dialog.dismiss()
                     ),
                     MDButton(
                         MDButtonText(text="Connect"),
+                        style="text",
                         on_release=self._connect_remote
                     ),
-                ],
+                    spacing="8dp",
+                ),
             )
         self.dialog.open()
 
     def _connect_remote(self, *_):
-        form = self.dialog.content_cls
+        form = self._connect_form
         params = form.get_values()  # dict: {"engine","host","port","user","password","database","ssl"}
         engine = params["engine"]
         app = self.get_running_app()
