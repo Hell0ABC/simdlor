@@ -12,6 +12,7 @@ from kivymd.uix.button import MDButton, MDButtonText
 from kivy.uix.widget import Widget
 from kivy.uix.scrollview import ScrollView
 from kivy.metrics import dp
+from kivy.logger import Logger
 
 from ui.widgets import ConnectForm
 from app.config import BASE_DIR
@@ -20,37 +21,53 @@ from app.config import BASE_DIR
 class HomeScreen(MDScreen):
     dialog = None
     _connect_form = None
+    logger = Logger.getChild("HomeScreen")
 
     def on_pre_enter(self, *args):
         # preparing file manager
         if not hasattr(self, "fm"):
             from kivymd.uix.filemanager import MDFileManager
             self.fm = MDFileManager(select_path=self._on_pick, exit_manager=self._on_close)
+            self.logger.debug("Initialized file manager for local database selection")
+        else:
+            self.logger.debug("Reusing existing file manager instance")
 
     # --- Local ---
     def open_file_manager(self):
         import os
         start_dir = os.path.expanduser(BASE_DIR)
+        self.logger.debug("Local DB button pressed (start_dir=%s)", start_dir)
+        self.logger.info("Showing local database picker at %s", start_dir)
         self.fm.show(start_dir)
 
     def _on_close(self, *args):
         self.fm.close()
+        self.logger.debug("File manager closed")
 
     def _on_pick(self, path: str):
-        # TODO Переключение на экран БД
+        self.logger.debug("Path selected '%s'", path)
         if not path.lower().endswith(".db"):
+            self.logger.warning("Rejected non-DB file '%s'", path)
             self._toast("Pick a *.db file")
             return
         from database.sqlite_connector import Database
         app = self.get_running_app()
-        app.repo = Database(path)
+        try:
+            app.repo = Database(path)
+        except Exception as exc:  # pragma: no cover
+            self.logger.error("Failed to open '%s': %s", path, exc)
+            self._toast("Failed to open database")
+            return
         self.fm.close()
         self.manager.current = "database"
+        self.logger.info("Loaded '%s' and switched to database screen", path)
 
     # --- Remote DB ---
-    # TODO Продумать логику подключения
     def open_remote_dialog(self):
+        self.logger.debug("Remote DB button pressed")
+        self.logger.info("Opening remote database connection dialog")
         if self._connect_form is None:
+            self.logger.debug("Creating ConnectForm for remote dialog")
             self._connect_form = ConnectForm()
 
         if self.dialog is None:
@@ -73,7 +90,7 @@ class HomeScreen(MDScreen):
                     MDButton(
                         MDButtonText(text="Cancel"),
                         style="text",
-                        on_release=lambda *_: self.dialog.dismiss()
+                        on_release=self._cancel_remote_dialog
                     ),
                     MDButton(
                         MDButtonText(text="Connect"),
@@ -83,7 +100,15 @@ class HomeScreen(MDScreen):
                     spacing="8dp",
                 ),
             )
+            self.logger.debug("Remote dialog created")
         self.dialog.open()
+        self.logger.info("Remote dialog opened")
+
+    def _cancel_remote_dialog(self, *_):
+        self.logger.debug("Remote dialog cancel button pressed")
+        self.logger.info("Remote dialog cancelled by user")
+        if self.dialog:
+            self.dialog.dismiss()
 
     def _connect_remote(self, *_):
         form = self._connect_form
@@ -91,20 +116,24 @@ class HomeScreen(MDScreen):
         engine = params["engine"]
         app = self.get_running_app()
 
+        self.logger.debug("Connect button pressed for engine '%s'", engine)
         if engine == "MySQL":
+            self.logger.debug("Preparing MySQL connection parameters")
             pass
         elif engine == "PostgreSQL":
+            self.logger.debug("Preparing PostgreSQL connection parameters")
             pass
         elif engine == "MSSQL":
-           pass
+            self.logger.debug("Preparing MSSQL connection parameters")
+            pass
         else:
+            self.logger.error("Unsupported engine '%s'", engine)
             self._toast("Unsupported engine")
             return
 
-        # TODO: обернуть драйвер в адаптер по интерфейсу репозитория.
-        # app.repo = RemoteRepo(conn)  # твой класс-обёртка
         self.dialog.dismiss()
         self.manager.current = "database"
+        self.logger.info("Remote DB flow completed; switching to database screen")
 
     def _toast(self, text):
         from kivymd.toast import toast
