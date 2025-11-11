@@ -55,7 +55,7 @@ class HomeScreen(MDScreen):
         app.db = Database(path)
         self.fm.close()
         self.manager.current = "database"
-        Logger.info("Loaded '%s' and switched to database screen", path)
+        Logger.info("HomeScreen: Loaded '%s' and switched to database screen", path)
 
     # --- Remote DB ---
     def open_remote_dialog(self):
