@@ -3,7 +3,6 @@ from kivy.lang import Builder
 from kivymd.uix.screenmanager import MDScreenManager
 from kivy.resources import resource_add_path
 
-from database import sqlite_connector
 from ui.screens import LoadingScreen, TableScreen, DatabaseScreen, HomeScreen
 from app.config import KV_DIR, KV_APP, KV_SCREENS, KV_WIDGETS
 

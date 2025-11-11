@@ -149,7 +149,7 @@ class DatabaseScreen(MDScreen):
     def button_press(self, instance):
         self.manager.transition.direction = 'left'
         self.manager.current = 'table'
-        self.db.selected_table = instance.text
+        self.db.selected_table = instance.text # TODO 'MDButton' object has no attribute 'text'
         self.db.table_values = self.db.get_table_values(self.db.selected_table)
 
     def on_enter(self):
