@@ -17,38 +17,38 @@ from kivy.logger import Logger
 
 from ui.widgets import ConnectForm
 from app.config import BASE_DIR
+from app.notify import notify
 
 
 class HomeScreen(MDScreen):
     dialog = None
     _connect_form = None
-    logger = Logger.getChild("HomeScreen")
 
     def on_pre_enter(self, *args):
         # preparing file manager
         if not hasattr(self, "fm"):
             from kivymd.uix.filemanager import MDFileManager
             self.fm = MDFileManager(select_path=self._on_pick, exit_manager=self._on_close)
-            self.logger.debug("Initialized file manager for local database selection")
+            Logger.debug("HomeScreen: Initialized file manager for local database selection")
         else:
-            self.logger.debug("Reusing existing file manager instance")
+            Logger.debug("HomeScreen: Reusing existing file manager instance")
 
     # --- Local ---
     def open_file_manager(self):
         import os
         start_dir = os.path.expanduser(BASE_DIR)
-        self.logger.debug("Local DB button pressed (start_dir=%s)", start_dir)
-        self.logger.info("Showing local database picker at %s", start_dir)
+        Logger.debug("HomeScreen: Local DB button pressed (start_dir=%s)", start_dir)
+        Logger.info("HomeScreen: Showing local database picker at %s", start_dir)
         self.fm.show(start_dir)
 
     def _on_close(self, *args):
         self.fm.close()
-        self.logger.debug("File manager closed")
+        Logger.debug("HomeScreen: File manager closed")
 
     def _on_pick(self, path: str):
         if not path.lower().endswith(".db"):
-            self.logger.warning("Rejected non-DB file '%s'", path)
-            self._toast("Pick a *.db file")
+            Logger.warning("HomeScreen: Rejected non-DB file '%s'", path)
+            notify("Pick a *.db file")
             return
         from database.sqlite_connector import Database
         app = App.get_running_app()
@@ -59,10 +59,10 @@ class HomeScreen(MDScreen):
 
     # --- Remote DB ---
     def open_remote_dialog(self):
-        self.logger.debug("Remote DB button pressed")
-        self.logger.info("Opening remote database connection dialog")
+        Logger.debug("HomeScreen: Remote DB button pressed")
+        Logger.info("HomeScreen: Opening remote database connection dialog")
         if self._connect_form is None:
-            self.logger.debug("Creating ConnectForm for remote dialog")
+            Logger.debug("HomeScreen: Creating ConnectForm for remote dialog")
             self._connect_form = ConnectForm()
 
         if self.dialog is None:
@@ -95,13 +95,13 @@ class HomeScreen(MDScreen):
                     spacing="8dp",
                 ),
             )
-            self.logger.debug("Remote dialog created")
+            Logger.debug("HomeScreen: Remote dialog created")
         self.dialog.open()
-        self.logger.info("Remote dialog opened")
+        Logger.info("HomeScreen: Remote dialog opened")
 
     def _cancel_remote_dialog(self, *_):
-        self.logger.debug("Remote dialog cancel button pressed")
-        self.logger.info("Remote dialog cancelled by user")
+        Logger.debug("HomeScreen: Remote dialog cancel button pressed")
+        Logger.info("HomeScreen: Remote dialog cancelled by user")
         if self.dialog:
             self.dialog.dismiss()
 
@@ -111,28 +111,24 @@ class HomeScreen(MDScreen):
         engine = params["engine"]
         app = App.get_running_app()
 
-        self.logger.debug("Connect button pressed for engine '%s'", engine)
+        Logger.debug("HomeScreen: Connect button pressed for engine '%s'", engine)
         if engine == "MySQL":
-            self.logger.debug("Preparing MySQL connection parameters")
+            Logger.debug("HomeScreen: Preparing MySQL connection parameters")
             pass
         elif engine == "PostgreSQL":
-            self.logger.debug("Preparing PostgreSQL connection parameters")
+            Logger.debug("HomeScreen: Preparing PostgreSQL connection parameters")
             pass
         elif engine == "MSSQL":
-            self.logger.debug("Preparing MSSQL connection parameters")
+            Logger.debug("HomeScreen: Preparing MSSQL connection parameters")
             pass
         else:
-            self.logger.error("Unsupported engine '%s'", engine)
-            self._toast("Unsupported engine")
+            Logger.error("HomeScreen: Unsupported engine '%s'", engine)
+            notify("Unsupported engine")
             return
 
         self.dialog.dismiss()
         self.manager.current = "database"
-        self.logger.info("Remote DB flow completed; switching to database screen")
-
-    def _toast(self, text):
-        from kivymd.toast import toast
-        toast(text)
+        Logger.info("HomeScreen: Remote DB flow completed; switching to database screen")
 
 class LoadingScreen(MDScreen):
     def on_enter(self):
