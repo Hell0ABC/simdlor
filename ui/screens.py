@@ -94,7 +94,7 @@ class LoadingScreen(MDScreen):
 
 # BROKEN
 class DatabaseScreen(MDScreen):
-    db = ObjectProperty(None)  # вместо конструктора с db
+    db = ObjectProperty(None)
 
     def button_press(self, instance):
         self.manager.transition.direction = 'left'
