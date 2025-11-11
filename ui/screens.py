@@ -1,6 +1,7 @@
+from kivy.app import App
 from kivymd.uix.label import MDLabel
 from ui.widgets import ValueInput
-
+from kivy.properties import ObjectProperty
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.dialog import (
     MDDialog,
@@ -45,19 +46,13 @@ class HomeScreen(MDScreen):
         self.logger.debug("File manager closed")
 
     def _on_pick(self, path: str):
-        self.logger.debug("Path selected '%s'", path)
         if not path.lower().endswith(".db"):
             self.logger.warning("Rejected non-DB file '%s'", path)
             self._toast("Pick a *.db file")
             return
         from database.sqlite_connector import Database
-        app = self.get_running_app()
-        try:
-            app.repo = Database(path)
-        except Exception as exc:  # pragma: no cover
-            self.logger.error("Failed to open '%s': %s", path, exc)
-            self._toast("Failed to open database")
-            return
+        app = App.get_running_app()
+        app.db = Database(path)
         self.fm.close()
         self.manager.current = "database"
         self.logger.info("Loaded '%s' and switched to database screen", path)
@@ -114,7 +109,7 @@ class HomeScreen(MDScreen):
         form = self._connect_form
         params = form.get_values()  # dict: {"engine","host","port","user","password","database","ssl"}
         engine = params["engine"]
-        app = self.get_running_app()
+        app = App.get_running_app()
 
         self.logger.debug("Connect button pressed for engine '%s'", engine)
         if engine == "MySQL":
@@ -149,9 +144,7 @@ class LoadingScreen(MDScreen):
 
 # BROKEN
 class DatabaseScreen(MDScreen):
-    def __init__(self, db, **kwargs):
-        super().__init__(**kwargs)
-        self.db = db
+    db = ObjectProperty(None)
 
     def button_press(self, instance):
         self.manager.transition.direction = 'left'
@@ -160,22 +153,29 @@ class DatabaseScreen(MDScreen):
         self.db.table_values = self.db.get_table_values(self.db.selected_table)
 
     def on_enter(self):
+        if not self.db:
+            self.db = getattr(App.get_running_app(), 'db', None)
+
+        if not self.db:
+            self.ids.db_box_layout.clear_widgets()
+            self.ids.db_box_layout.add_widget(MDLabel(text="No database selected"))
+            return
+
         self.ids.db_box_layout.clear_widgets()
         for name in self.db.tables:
-            btn = MDButtonText(
+            btn = MDButton(
+                on_release=self.button_press,
                 size_hint=(1, None),
                 height="48dp",
-                pos_hint={"center_x": .5}
+                pos_hint={"center_x": .5},
             )
             btn.add_widget(MDButtonText(text=str(name)))
-            btn.bind(on_release=self.button_press)
             self.ids.db_box_layout.add_widget(btn)
 
 #Not tested
 class TableScreen(MDScreen):
-    def __init__(self, db, **kw):
+    def __init__(self, **kw):
         super().__init__(**kw)
-        self.db = db
         self.last_text = None
 
     def widget_text_for_create(self, widget):
@@ -200,6 +200,8 @@ class TableScreen(MDScreen):
         self.last_text = widget.text
 
     def on_enter(self, *args):
+        if not self.db:
+            self.db = getattr(App.get_running_app(), 'db', None)
         self.ids.table_grid_layout.clear_widgets()
         table = self.db.selected_table
         columns = self.db.get_table_columns(table)
