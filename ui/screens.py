@@ -29,7 +29,6 @@ class HomeScreen(MDScreen):
         self.fm.close()
 
     def _on_pick(self, path: str):
-        # TODO Переключение на экран БД
         if not path.lower().endswith(".db"):
             self._toast("Pick a *.db file")
             return
