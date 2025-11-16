@@ -6,10 +6,6 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-"""
-TODO:
-
-"""
 #Логгер Kivy или стандартный
 try:
     from kivy.logger import Logger
@@ -23,22 +19,41 @@ except ImportError:
 
 #Конвертер даты для предотвращения ValueError: invalid literal for int() with base 10: b'12.04.2021'
 def _flexible_date_converter(value: bytes):
+    """Конвертер для поля DATE c несколькими форматами."""
     text = value.decode()
     if not text:
         return None
+
     for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%Y-%m-%d %H:%M:%S"):
         try:
             return _dt.datetime.strptime(text, fmt).date()
         except ValueError:
             continue
+
     logging.getLogger("sqlite_connector").warning("Unexpected DATE format: %s", text)
     return text 
 
 sqlite3.register_converter("DATE", _flexible_date_converter)
 
 class Database:
-    """
-    Небольшой слой поверх sqlite3:
+    """Обёртка над sqlite3 для безопасной работы c БД.
+
+    Основные возможности:
+      • автоматическое открытие / закрытие соединения;
+      • безопасная работа c именами таблиц и колонок;
+      • простые методы CRUD (select / insert / update / delete);
+      • контекстный менеджер для транзакций.
+
+    Использование:
+      db = Database("my.db")
+      rows = db.fetch_rows("users", where="age > ?", params=[18])
+
+    Для мобильного приложения:
+      • открываешь БД один раз на экран/репозиторий;
+      • дергаешь методы этого класса в репозиториях/сервисах;
+      • закрываешь через db.close() при уничтожении экрана/приложения.
+
+    Методы:
       • list_tables / describe_table — структура БД.
       • fetch_rows — получение данных.
       • insert_row / update_rows / delete_rows — модификация.
@@ -75,17 +90,17 @@ class Database:
     def list_tables(self) -> list[str]:
         sql = "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
         rows = self._conn.execute(sql).fetchall()
-        tables = [row["name"] for row in rows]
-        Logger.debug("DB: tables = %s", tables)
+        tables = [row[0] for row in rows]
+        Logger.debug("DB: tables=%s", tables)
         return tables
 
     def describe_table(self, table: str) -> list[dict[str, Any]]:
         table = self._validate_table(table)
-        pragma_sql = f'PRAGMA table_info("{table}")'
-        rows = self._conn.execute(pragma_sql).fetchall()
-        if not rows:
-            raise ValueError(f"Таблица '{table}' не найдена")
-        return [dict(row) for row in rows]
+        sql = f'PRAGMA table_info("{table}")'
+        rows = self._conn.execute(sql).fetchall()
+        info = [dict(row) for row in rows]
+        Logger.debug("DB: describe %s -> %s", table, info)
+        return info
 
     def fetch_rows(
         self,
@@ -93,13 +108,13 @@ class Database:
         *,
         columns: Sequence[str] | None = None,
         where: str | None = None,
-        params: Sequence[Any] | Mapping[str, Any] | None = None,
+        params: Sequence[Any] | None = None,
         order_by: Sequence[str] | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[dict[str, Any]]:
         table = self._validate_table(table)
-        params = params or ()
+        bind_params: list[Any] = list(params) if params is not None else []
         selected = ", ".join(self._validate_column(col, table) for col in columns) if columns else "*"
 
         sql = [f'SELECT {selected} FROM "{table}"']
@@ -110,24 +125,24 @@ class Database:
             sql.append(f"ORDER BY {order_clause}")
         if limit is not None:
             sql.append("LIMIT ?")
-            params = (*params, limit) if isinstance(params, tuple) else list(params) + [limit]
+            bind_params.append(limit)
         if offset is not None:
             sql.append("OFFSET ?")
-            params = (*params, offset) if isinstance(params, tuple) else list(params) + [offset]
+            bind_params.append(offset)
 
         query = " ".join(sql)
-        Logger.debug("DB: fetch query=%s params=%s", query, params)
-        rows = self._conn.execute(query, params).fetchall()
+        Logger.debug("DB: fetch query=%s params=%s", query, bind_params)
+        rows = self._conn.execute(query, tuple(bind_params)).fetchall()
         return [dict(row) for row in rows]
 
     def insert_row(self, table: str, data: Mapping[str, Any]) -> int:
         if not data:
             raise ValueError("insert_row: data пустое")
         table = self._validate_table(table)
-        columns = [self._validate_column(col, table) for col in data.keys()]
-        placeholders = ", ".join("?" for _ in columns)
-        sql = f'INSERT INTO "{table}" ({", ".join(columns)}) VALUES ({placeholders})'
-        Logger.debug("DB: insert %s data=%s", table, data)
+        columns = ", ".join(self._validate_column(col, table) for col in data.keys())
+        placeholders = ", ".join("?" for _ in data)
+        sql = f'INSERT INTO "{table}" ({columns}) VALUES ({placeholders})'
+        Logger.debug("DB: insert into %s data=%s", table, data)
         cur = self._conn.execute(sql, tuple(data.values()))
         self._conn.commit()
         return cur.lastrowid
@@ -138,19 +153,17 @@ class Database:
         data: Mapping[str, Any],
         *,
         where: str,
-        params: Sequence[Any] | Mapping[str, Any],
+        params: Sequence[Any],
     ) -> int:
         if not data:
             raise ValueError("update_rows: data пустое")
         table = self._validate_table(table)
         assignments = ", ".join(f'{self._validate_column(col, table)} = ?' for col in data.keys())
         sql = f'UPDATE "{table}" SET {assignments} WHERE {where}'
-        bind_params = tuple(data.values())
-        if isinstance(params, Mapping):
-            raise ValueError("For named parameters, use the :name syntax and concatenate the dictionaries manually.")
-        bind_params += tuple(params)
+        bind_params = list(data.values())
+        bind_params.extend(params)
         Logger.debug("DB: update %s set=%s where=%s params=%s", table, data, where, bind_params)
-        cur = self._conn.execute(sql, bind_params)
+        cur = self._conn.execute(sql, tuple(bind_params))
         self._conn.commit()
         return cur.rowcount
 
@@ -164,8 +177,9 @@ class Database:
 
     def drop_table(self, table: str) -> None:
         table = self._validate_table(table)
+        sql = f'DROP TABLE IF EXISTS "{table}"'
         Logger.warning("DB: drop table %s", table)
-        self._conn.execute(f'DROP TABLE IF EXISTS "{table}"')
+        self._conn.execute(sql)
         self._conn.commit()
 
     def commit(self) -> None:
@@ -205,10 +219,7 @@ class Database:
             if replace:
                 self._conn.execute(sql)
             else:
-                try:
-                    self._conn.execute(sql)
-                except sqlite3.DatabaseError:
-                    Logger.warning("DB: pragma %s isn't supported", key)
+                self._conn.execute(sql).fetchall()
 
     def _validate_table(self, table: str) -> str:
         if not table or not self._IDENT_RE.match(table):
@@ -219,7 +230,7 @@ class Database:
         if column == "*":
             return column
         if not column or not self._IDENT_RE.match(column):
-            raise ValueError(f"Incorrect coumn name: {column!r}")
+            raise ValueError(f"Incorrect column name: {column!r}")
         return column
 
     def __del__(self) -> None:
