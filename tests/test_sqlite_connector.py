@@ -97,8 +97,7 @@ def test_delete_rows(db: Database):
 
 def test_drop_table(db: Database):
     db.drop_table("Doctors")
-    with pytest.raises(ValueError):
-        db.describe_table("Doctors")
+    assert db.describe_table("Doctors") == []
 
 
 def test_transaction_context(db_path: Path):
