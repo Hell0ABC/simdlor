@@ -1,0 +1,3 @@
+Для отладки:
+from kivy.logger import Logger, LOG_LEVELS
+Logger.setLevel(LOG_LEVELS["debug"])
