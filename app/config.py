@@ -1,6 +1,6 @@
 from pathlib import Path
 
-APP_VERSION = '0.2.0'
+APP_VERSION = '0.3.0'
 BASE_DIR = Path(__file__).resolve().parents[1]
 
 KV_DIR  = BASE_DIR / 'ui' / 'kv'
