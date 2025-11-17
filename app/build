@@ -16,7 +16,6 @@ sed -i 's/^BUILD_TYPE = "release"/BUILD_TYPE = "'"$MODE"'"/' config.py
 
 echo "[*] BUILD_TYPE set to $MODE in config.py"
 
-cd ..
 if [[ "$MODE" == "debug" ]]; then
     buildozer android debug
 else
