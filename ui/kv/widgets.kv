@@ -1,50 +1,134 @@
 #:kivy 2.1.0
 #:import Factory kivy.factory.Factory
 #:import MDDialog kivymd.uix.dialog
+#:import dp kivy.metrics.dp
 
 <ConnectForm>:
     orientation: "vertical"
     spacing: "8dp"
     padding: "8dp"
+    size_hint_y: None
+    height: self.minimum_height
 
     MDBoxLayout:
+        orientation: "vertical"
+        spacing: "4dp"
         size_hint_y: None
-        height: "48dp"
+        height: self.minimum_height
+        MDLabel:
+            text: "Engine"
+            size_hint_y: None
+            height: self.texture_size[1]
+            role: "small"
+            theme_text_color: "Hint"
         MDButton:
             id: engine_btn
             style: "outlined"
+            size_hint_y: None
+            height: "40dp"
             on_release: root.open_menu()
             MDButtonText:
                 id: engine_btn_text
                 text: root.engine
 
-    MDTextField:
-        id: host
-        hint_text: "Host"
-        text: "localhost"
-        helper_text: "Hostname or IP"
-        helper_text_mode: "on_focus"
+    MDBoxLayout:
+        orientation: "vertical"
+        spacing: "4dp"
+        size_hint_y: None
+        height: self.minimum_height
+        MDLabel:
+            text: "Host"
+            size_hint_y: None
+            height: self.texture_size[1]
+            role: "small"
+            theme_text_color: "Hint"
+        MDTextField:
+            size_hint_y: None
+            height: "56dp"
+            id: host
+            hint_text: "Hostname or IP"
+            text: "localhost"
+            helper_text: "Example: localhost or db.mycompany.com"
+            helper_text_mode: "on_focus"
 
-    MDTextField:
-        id: port
-        hint_text: "Port"
-        text: "3306"  # будет обновляться при выборе движка
-        helper_text: "Default: MySQL 3306 / Postgres 5432 / MSSQL 1433"
-        helper_text_mode: "on_focus"
-        input_filter: "int"
+    MDBoxLayout:
+        orientation: "vertical"
+        spacing: "4dp"
+        size_hint_y: None
+        height: self.minimum_height
+        MDLabel:
+            text: "Port"
+            size_hint_y: None
+            height: self.texture_size[1]
+            role: "small"
+            theme_text_color: "Hint"
+        MDTextField:
+            size_hint_y: None
+            height: "56dp"
+            id: port
+            hint_text: "Port"
+            text: "3306"
+            helper_text: "Default: MySQL 3306 / Postgres 5432 / MSSQL 1433"
+            helper_text_mode: "on_focus"
+            input_filter: "int"
 
-    MDTextField:
-        id: database
-        hint_text: "Database name"
+    MDBoxLayout:
+        orientation: "vertical"
+        spacing: "4dp"
+        size_hint_y: None
+        height: self.minimum_height
+        MDLabel:
+            text: "Database"
+            size_hint_y: None
+            height: self.texture_size[1]
+            role: "small"
+            theme_text_color: "Hint"
+        MDTextField:
+            size_hint_y: None
+            height: "56dp"
+            id: database
+            hint_text: "Database / schema name"
+            helper_text: "The DB that stores your data"
+            helper_text_mode: "on_focus"
 
-    MDTextField:
-        id: user
-        hint_text: "User"
+    MDBoxLayout:
+        orientation: "vertical"
+        spacing: "4dp"
+        size_hint_y: None
+        height: self.minimum_height
+        MDLabel:
+            text: "User"
+            size_hint_y: None
+            height: self.texture_size[1]
+            role: "small"
+            theme_text_color: "Hint"
+        MDTextField:
+            size_hint_y: None
+            height: "56dp"
+            id: user
+            hint_text: "Username"
+            helper_text: "Database account used for the connection"
+            helper_text_mode: "on_focus"
 
-    MDTextField:
-        id: password
-        hint_text: "Password"
-        password: True
+    MDBoxLayout:
+        orientation: "vertical"
+        spacing: "4dp"
+        size_hint_y: None
+        height: self.minimum_height
+        MDLabel:
+            text: "Password"
+            size_hint_y: None
+            height: self.texture_size[1]
+            role: "small"
+            theme_text_color: "Hint"
+        MDTextField:
+            size_hint_y: None
+            height: "56dp"
+            id: password
+            hint_text: "Password (optional)"
+            helper_text: "Leave blank for passwordless accounts"
+            helper_text_mode: "on_focus"
+            password: True
 
     MDBoxLayout:
         size_hint_y: None
@@ -56,6 +140,7 @@
         MDSwitch:
             id: ssl
             active: False
+
 
 
 <Content>

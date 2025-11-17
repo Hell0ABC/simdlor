@@ -1,88 +1,134 @@
+from kivy.app import App
 from kivymd.uix.label import MDLabel
 from ui.widgets import ValueInput
-
+from kivy.properties import ObjectProperty
 from kivymd.uix.screen import MDScreen
-from kivymd.uix.dialog import MDDialog
+from kivymd.uix.dialog import (
+    MDDialog,
+    MDDialogButtonContainer,
+    MDDialogContentContainer,
+    MDDialogHeadlineText,
+)
 from kivymd.uix.button import MDButton, MDButtonText
+from kivy.uix.widget import Widget
+from kivy.uix.scrollview import ScrollView
+from kivy.metrics import dp
+from kivy.logger import Logger
 
 from ui.widgets import ConnectForm
 from app.config import BASE_DIR
+from app.notify import notify
 
 
 class HomeScreen(MDScreen):
     dialog = None
+    _connect_form = None
 
     def on_pre_enter(self, *args):
         # preparing file manager
         if not hasattr(self, "fm"):
             from kivymd.uix.filemanager import MDFileManager
             self.fm = MDFileManager(select_path=self._on_pick, exit_manager=self._on_close)
+            Logger.debug("HomeScreen: Initialized file manager for local database selection")
+        else:
+            Logger.debug("HomeScreen: Reusing existing file manager instance")
 
     # --- Local ---
     def open_file_manager(self):
         import os
         start_dir = os.path.expanduser(BASE_DIR)
+        Logger.debug("HomeScreen: Local DB button pressed (start_dir=%s)", start_dir)
+        Logger.info("HomeScreen: Showing local database picker at %s", start_dir)
         self.fm.show(start_dir)
 
     def _on_close(self, *args):
         self.fm.close()
+        Logger.debug("HomeScreen: File manager closed")
 
     def _on_pick(self, path: str):
-        # TODO Переключение на экран БД
         if not path.lower().endswith(".db"):
-            self._toast("Pick a *.db file")
+            Logger.warning("HomeScreen: Rejected non-DB file '%s'", path)
+            notify("Pick a *.db file")
             return
         from database.sqlite_connector import Database
-        app = self.get_running_app()
-        app.repo = Database(path)
+        app = App.get_running_app()
+        app.db = Database(path)
         self.fm.close()
         self.manager.current = "database"
+        Logger.info("HomeScreen: Loaded '%s' and switched to database screen", path)
 
     # --- Remote DB ---
-    # TODO Продумать логику подключения
     def open_remote_dialog(self):
+        Logger.debug("HomeScreen: Remote DB button pressed")
+        Logger.info("HomeScreen: Opening remote database connection dialog")
+        if self._connect_form is None:
+            Logger.debug("HomeScreen: Creating ConnectForm for remote dialog")
+            self._connect_form = ConnectForm()
+
         if self.dialog is None:
+            form_scroll = ScrollView(
+                size_hint=(1, None),
+                height=dp(360),
+                do_scroll_x=False,
+                bar_width="2dp",
+            )
+            form_scroll.add_widget(self._connect_form)
+
             self.dialog = MDDialog(
-                title="Connect to remote DB",
-                type="custom",
-                content_cls=ConnectForm(),
-                buttons=[
+                MDDialogHeadlineText(text="Connect to remote DB"),
+                MDDialogContentContainer(
+                    form_scroll,
+                    orientation="vertical",
+                ),
+                MDDialogButtonContainer(
+                    Widget(),
                     MDButton(
                         MDButtonText(text="Cancel"),
-                        on_release=lambda *_: self.dialog.dismiss()
+                        style="text",
+                        on_release=self._cancel_remote_dialog
                     ),
                     MDButton(
                         MDButtonText(text="Connect"),
+                        style="text",
                         on_release=self._connect_remote
                     ),
-                ],
+                    spacing="8dp",
+                ),
             )
+            Logger.debug("HomeScreen: Remote dialog created")
         self.dialog.open()
+        Logger.info("HomeScreen: Remote dialog opened")
+
+    def _cancel_remote_dialog(self, *_):
+        Logger.debug("HomeScreen: Remote dialog cancel button pressed")
+        Logger.info("HomeScreen: Remote dialog cancelled by user")
+        if self.dialog:
+            self.dialog.dismiss()
 
     def _connect_remote(self, *_):
-        form = self.dialog.content_cls
+        form = self._connect_form
         params = form.get_values()  # dict: {"engine","host","port","user","password","database","ssl"}
         engine = params["engine"]
-        app = self.get_running_app()
+        app = App.get_running_app()
 
+        Logger.debug("HomeScreen: Connect button pressed for engine '%s'", engine)
         if engine == "MySQL":
+            Logger.debug("HomeScreen: Preparing MySQL connection parameters")
             pass
         elif engine == "PostgreSQL":
+            Logger.debug("HomeScreen: Preparing PostgreSQL connection parameters")
             pass
         elif engine == "MSSQL":
-           pass
+            Logger.debug("HomeScreen: Preparing MSSQL connection parameters")
+            pass
         else:
-            self._toast("Unsupported engine")
+            Logger.error("HomeScreen: Unsupported engine '%s'", engine)
+            notify("Unsupported engine")
             return
 
-        # TODO: обернуть драйвер в адаптер по интерфейсу репозитория.
-        # app.repo = RemoteRepo(conn)  # твой класс-обёртка
         self.dialog.dismiss()
         self.manager.current = "database"
-
-    def _toast(self, text):
-        from kivymd.toast import toast
-        toast(text)
+        Logger.info("HomeScreen: Remote DB flow completed; switching to database screen")
 
 class LoadingScreen(MDScreen):
     def on_enter(self):
@@ -94,33 +140,38 @@ class LoadingScreen(MDScreen):
 
 # BROKEN
 class DatabaseScreen(MDScreen):
-    def __init__(self, db, **kwargs):
-        super().__init__(**kwargs)
-        self.db = db
+    db = ObjectProperty(None)
 
     def button_press(self, instance):
         self.manager.transition.direction = 'left'
         self.manager.current = 'table'
-        self.db.selected_table = instance.text
+        self.db.selected_table = instance.text # TODO 'MDButton' object has no attribute 'text'
         self.db.table_values = self.db.get_table_values(self.db.selected_table)
 
     def on_enter(self):
+        if not self.db:
+            self.db = getattr(App.get_running_app(), 'db', None)
+
+        if not self.db:
+            self.ids.db_box_layout.clear_widgets()
+            self.ids.db_box_layout.add_widget(MDLabel(text="No database selected"))
+            return
+
         self.ids.db_box_layout.clear_widgets()
         for name in self.db.tables:
-            btn = MDButtonText(
+            btn = MDButton(
+                on_release=self.button_press,
                 size_hint=(1, None),
                 height="48dp",
-                pos_hint={"center_x": .5}
+                pos_hint={"center_x": .5},
             )
             btn.add_widget(MDButtonText(text=str(name)))
-            btn.bind(on_release=self.button_press)
             self.ids.db_box_layout.add_widget(btn)
 
 #Not tested
 class TableScreen(MDScreen):
-    def __init__(self, db, **kw):
+    def __init__(self, **kw):
         super().__init__(**kw)
-        self.db = db
         self.last_text = None
 
     def widget_text_for_create(self, widget):
@@ -145,6 +196,8 @@ class TableScreen(MDScreen):
         self.last_text = widget.text
 
     def on_enter(self, *args):
+        if not self.db:
+            self.db = getattr(App.get_running_app(), 'db', None)
         self.ids.table_grid_layout.clear_widgets()
         table = self.db.selected_table
         columns = self.db.get_table_columns(table)
