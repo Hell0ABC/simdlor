@@ -2,9 +2,10 @@ from kivymd.app import MDApp
 from kivy.lang import Builder
 from kivymd.uix.screenmanager import MDScreenManager
 from kivy.resources import resource_add_path
+from kivy.logger import Logger
 
 from ui.screens import LoadingScreen, TableScreen, DatabaseScreen, HomeScreen
-from app.config import KV_DIR, KV_APP, KV_SCREENS, KV_WIDGETS
+from app.config import KV_DIR, KV_APP, KV_SCREENS, KV_WIDGETS, BUILD_TYPE, LOG_LEVEL
 
 class DatabaseApp(MDApp):
 
@@ -12,6 +13,9 @@ class DatabaseApp(MDApp):
         self.db = None
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "Blue"
+
+        Logger.setLevel(LOG_LEVEL)
+        Logger.info("App starting. build_type=%s", BUILD_TYPE)
         
         resource_add_path(str(KV_DIR))
         if KV_WIDGETS.exists():

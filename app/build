@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -e
+
+MODE="$1"
+
+if [[ "$MODE" != "debug" && "$MODE" != "release" ]]; then
+    echo "Usage: $0 {debug|release}"
+    exit 1
+fi
+
+echo "[*] Building in $MODE mode"
+
+
+sed -i 's/^BUILD_TYPE = "debug"/BUILD_TYPE = "'"$MODE"'"/' config.py
+sed -i 's/^BUILD_TYPE = "release"/BUILD_TYPE = "'"$MODE"'"/' config.py
+
+echo "[*] BUILD_TYPE set to $MODE in config.py"
+
+cd ..
+if [[ "$MODE" == "debug" ]]; then
+    buildozer android debug
+else
+    buildozer android release
+fi
