@@ -5,7 +5,9 @@ from kivy.resources import resource_add_path
 from kivy.logger import Logger
 
 from ui.screens import LoadingScreen, TableScreen, DatabaseScreen, HomeScreen
-from app.config import KV_DIR, KV_APP, KV_SCREENS, KV_WIDGETS, BUILD_TYPE, LOG_LEVEL
+from app.config import KV_DIR, KV_APP, KV_SCREENS, KV_WIDGETS, BUILD_TYPE, LOG_LEVEL, APP_VERSION
+
+__version__ = str(APP_VERSION)
 
 class DatabaseApp(MDApp):
 
@@ -15,7 +17,7 @@ class DatabaseApp(MDApp):
         self.theme_cls.primary_palette = "Blue"
 
         Logger.setLevel(LOG_LEVEL)
-        Logger.info("App starting. build_type=%s", BUILD_TYPE)
+        Logger.info("Main: App starting. build_type=%s, version=%s", BUILD_TYPE, __version__)
         
         resource_add_path(str(KV_DIR))
         if KV_WIDGETS.exists():
