@@ -1,23 +1,142 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
+#set -x
 
-MODE="$1"
+# Default values
+MODE="release"
+CLEAN=0
+PLATFORM="android"
+DEPLOY=0
+SETUP=0
 
-if [[ "$MODE" != "debug" && "$MODE" != "release" ]]; then
-    echo "Usage: $0 {debug|release}"
+WORK_DIR=$(pwd)
+VENV_DIR="$WORK_DIR/venv"
+LOG_DIR="$WORK_DIR/logs"
+
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/build_$(date +%Y.%m.%d_%H:%M:%S).log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+# Functions
+function logError()
+{
+    echo -e "\e[1;31mERROR: $*\e[0m" >&2
     exit 1
+}
+
+function logWarning()
+{
+    echo -e "\e[1;93mWARNING: $*\e[0m" >&2
+}
+
+function logInfo()
+{
+    echo -e "\e[1;32mSUCCESS!\e[0m" >&2
+}
+
+function usage()
+{
+	cat <<EOF
+Usage $0 [OPTIONS]
+
+Options:
+	-h, --help           Show this help message
+	-m, --mode MODE      Choose mode between debug and release (default release)
+	-c, --clean          (Optional) Clean building directory before build
+	-p, --platform       Choose platform for build between Android and iOS (default android)
+	--deploy             (Optional) Install app to device via adb (device must be connected)
+	--setup              (Optional) Install requirement packages
+EOF
+	exit 2
+}
+
+# Parsing ops
+while [[ $# -gt 0 ]]; do
+	case $1 in
+		-h | --help) usage ;;
+		-m | --mode) MODE=$2; shift 2 ;;
+		-c | --clean) CLEAN=1; shift ;;
+		-p | --platform) PLATFORM=$2; shift 2 ;;
+		--deploy) DEPLOY=1; shift ;;
+		--setup) SETUP=1; shift ;;
+		*) echo "Unknown argument $1"; exit 1 ;;
+	esac
+done
+
+cat <<EOF
+OPTIONS
+=================================
+MODE              : $MODE
+CLEAN             : $CLEAN
+PLATFORM          : $PLATFORM
+DEPLOY            : $DEPLOY
+SETUP             : $SETUP
+=================================
+EOF
+
+#  Checking values
+if [[ "$MODE" != "debug" && "$MODE" != "release" ]]; then
+    logError "Wrong mode, please check usage"
+    usage
+fi
+if [[ "$PLATFORM" != "android" && "$PLATFORM" != "ios" ]]; then
+	logError "Wrong platform, please check usage"
+	usage
 fi
 
-echo "[*] Building in $MODE mode"
-
-
-sed -i 's/^BUILD_TYPE = "debug"/BUILD_TYPE = "'"$MODE"'"/' config.py
-sed -i 's/^BUILD_TYPE = "release"/BUILD_TYPE = "'"$MODE"'"/' config.py
-
+#==== SETUP SYSTEM ====
+if [[ "$SETUP" -eq 1 ]]; then
+	echo "[*] Starting system setup"
+	echo "[*][*] Updating repo information"
+	sudo apt update
+	echo "[*][*] Installing essensial packeges"
+	sudo apt install -y git \
+		zip \
+		unzip \
+		openjdk-17-jdk \
+		python3-pip \
+		autoconf \
+		libtool \
+		pkg-config \
+		zlib1g-dev \
+		libncurses5-dev \
+		libncursesw5-dev \
+		cmake \
+		libffi-dev \
+		libssl-dev
+	logInfo
+fi
+#==== SETUP VENV ====
+echo "[*] Starting venv setup"
+echo "[*][*] Creating venv dir"
+python3 -m venv "$VENV_DIR"
+echo "[*][*] Activating virtual environment"
+source "$VENV_DIR/bin/activate"
+pip install -r requirements.txt
+logInfo
+#==== PRE-BUILD ==== 
+echo "[*] Starting pre-build in $MODE mode"
+cd "$WORK_DIR" || logError "Failed to change directory"
+[[ -f app/config.py ]] || logError "config file not found"
+sed -i "s/^BUILD_TYPE = .*/BUILD_TYPE = \"$MODE\"/" app/config.py
 echo "[*] BUILD_TYPE set to $MODE in config.py"
-
-if [[ "$MODE" == "debug" ]]; then
-    buildozer android debug
-else
-    buildozer android release
+[[ -f buildozer.spec.template ]] || logError "buildozer.spec.template not found"
+cp buildozer.spec.template buildozer.spec
+logInfo
+#==== CLEAN ====
+if [[ "$CLEAN" -eq 1 ]]; then
+	echo "[*] Cleaning .builder directory"
+	buildozer $PLATFORM clean
+	logInfo
+fi
+#==== BUILD ====
+echo "[*] Start build"
+buildozer $PLATFORM $MODE
+logInfo
+#==== INSTALL ON DEVICE ====
+if [[ "$DEPLOY" -eq 1 ]]; then
+    echo "[*] Start installing on the device"
+    [[ -f bin/*.apk ]] || logError "No APK file found in bin/"
+    adb install -r bin/*.apk
+    logInfo
 fi
