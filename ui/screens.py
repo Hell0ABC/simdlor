@@ -17,6 +17,7 @@ from kivy.logger import Logger
 
 from ui.widgets import ConnectForm
 from app.config import BASE_DIR
+from app.file_picker import AndroidDatabasePicker, PickResult, is_android
 from app.notify import notify
 
 
@@ -25,8 +26,15 @@ class HomeScreen(MDScreen):
     _connect_form = None
 
     def on_pre_enter(self, *args):
-        # preparing file manager
-        if not hasattr(self, "fm"):
+        # preparing file manager or SAF picker
+        if is_android():
+            if not hasattr(self, "_android_picker"):
+                try:
+                    self._android_picker = AndroidDatabasePicker()
+                    Logger.debug("HomeScreen: SAF picker ready for Android")
+                except Exception as exc:
+                    Logger.exception("HomeScreen: failed to init SAF picker (%s)", exc)
+        elif not hasattr(self, "fm"):
             from kivymd.uix.filemanager import MDFileManager
             self.fm = MDFileManager(select_path=self._on_pick, exit_manager=self._on_close)
             Logger.debug("HomeScreen: Initialized file manager for local database selection")
@@ -35,6 +43,18 @@ class HomeScreen(MDScreen):
 
     # --- Local ---
     def open_file_manager(self):
+        if is_android():
+            Logger.debug("HomeScreen: Local DB button pressed (Android SAF)")
+            try:
+                picker = getattr(self, "_android_picker")
+            except AttributeError:
+                notify("Cannot open file picker")
+                Logger.error("HomeScreen: SAF picker is not available")
+                return
+            Logger.info("HomeScreen: Launching SAF picker for local database")
+            picker.pick(self._on_android_pick)
+            return
+
         import os
         start_dir = os.path.expanduser(BASE_DIR)
         Logger.debug("HomeScreen: Local DB button pressed (start_dir=%s)", start_dir)
@@ -50,10 +70,28 @@ class HomeScreen(MDScreen):
             Logger.warning("HomeScreen: Rejected non-DB file '%s'", path)
             notify("Pick a *.db file")
             return
+        self.fm.close()
+        self._load_local_database(path)
+
+    def _on_android_pick(self, result: PickResult):
+        if result.cancelled:
+            Logger.info("HomeScreen: SAF picker cancelled by user")
+            notify("Cancelled")
+            return
+        if result.error:
+            Logger.error("HomeScreen: SAF picker failed (%s)", result.error)
+            notify("Could not import file")
+            return
+        if not result.path:
+            Logger.error("HomeScreen: SAF picker returned no path")
+            notify("Could not import file")
+            return
+        self._load_local_database(str(result.path))
+
+    def _load_local_database(self, path: str):
         from database.sqlite_connector import Database
         app = App.get_running_app()
         app.db = Database(path)
-        self.fm.close()
         self.manager.current = "database"
         Logger.info("HomeScreen: Loaded '%s' and switched to database screen", path)
 
