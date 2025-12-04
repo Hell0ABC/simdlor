@@ -47,7 +47,7 @@ jobs:
         run: chmod +x app/build
 
       - name: Build debug APK
-        run: bash app/build --mode debug --clean
+        run: bash app/build --mode debug
 
       - name: Build release APK
         run: bash app/build --mode release
@@ -73,7 +73,7 @@ jobs:
           target: google_apis
           arch: x86_64
           script: |
-            APK_PATH=$(ls app/*.apk)
+            APK_PATH=$(ls bin/*.apk)
             echo "Using APK: $APK_PATH"
             adb install "$APK_PATH"
             adb shell monkey -p app.helloabc.simdlor -c android.intent.category.LAUNCHER 1
