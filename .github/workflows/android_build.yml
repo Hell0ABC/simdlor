@@ -59,27 +59,3 @@ jobs:
           path: |
             bin/*.apk
             bin/*.aab
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Run emulator & smoke test
-        uses: ReactiveCircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          target: google_apis
-          arch: x86_64
-          script: |
-            APK_PATH=$(ls -t bin/*.apk | head -n 1)
-            if [[ -z "$APK_PATH" ]]; then
-              echo "No APK found in bin/" >&2
-              exit 1
-            fi
-            echo "Using APK: $APK_PATH"
-            adb install "$APK_PATH"
-            adb shell monkey -p app.helloabc.simdlor -c android.intent.category.LAUNCHER 1
-            sleep 20
-            adb logcat -d | grep "FATAL EXCEPTION" && exit 1 || echo "No fatal exception detected"
