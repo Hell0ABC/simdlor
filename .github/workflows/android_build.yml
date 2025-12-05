@@ -73,7 +73,11 @@ jobs:
           target: google_apis
           arch: x86_64
           script: |
-            APK_PATH=$(ls bin/*.apk)
+            APK_PATH=$(ls -t bin/*.apk | head -n 1)
+            if [[ -z "$APK_PATH" ]]; then
+              echo "No APK found in bin/" >&2
+              exit 1
+            fi
             echo "Using APK: $APK_PATH"
             adb install "$APK_PATH"
             adb shell monkey -p app.helloabc.simdlor -c android.intent.category.LAUNCHER 1
