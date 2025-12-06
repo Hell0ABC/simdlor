@@ -11,7 +11,7 @@ env:
   PYTHON_VERSION: "3.10"
 
 jobs:
-  prepare:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -39,12 +39,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-  build:
-    runs-on: ubuntu-latest
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-    needs: prepare
-
-    steps:
       - name: Run pytest
         run: python -m pytest
 
