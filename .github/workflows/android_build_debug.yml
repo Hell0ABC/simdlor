@@ -85,6 +85,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          shell: bash
           script: |
             set -euo pipefail
             APK_PATH=$(find bin -maxdepth 1 -name "*.apk" | head -n 1)
@@ -96,4 +97,3 @@ jobs:
             adb install -r "$APK_PATH"
             echo "Verifying package installation"
             adb shell pm list packages | grep -F "app.helloabc.simdlor"
-         shell: bash
