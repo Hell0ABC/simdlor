@@ -1,4 +1,0 @@
-- Detailed review
-- Mark potential bugs
-- Impove code writing and performance
-- Don't be soft and nice, just cold facts about mistakes in code 
