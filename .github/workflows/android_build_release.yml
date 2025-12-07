@@ -59,7 +59,7 @@ jobs:
           name: android-builds
           path: |
             bin/*.aab
-            app/build.log
+            logs/build.log
 
   test:
     runs-on: ubuntu-latest
@@ -71,11 +71,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: android-builds
+          path: .
 
       - name: List AAB files
-        run: ls -la bin/ 
+        run: ls -la bin/
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
       
-      - name: Install and smoke-test APK on emulator
+      - name: Install and smoke-test AAB on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -83,14 +90,11 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
-          script: |
-            set -euo pipefail
-            APK_PATH=$(find bin -maxdepth 1 -name "*.aab" | head -n 1)
-            if [[ -z "${APK_PATH:-}" ]]; then
-              echo "No AAB artifact found in bin/"
-              exit 1
-            fi
-            echo "Installing $APK_PATH"
-            adb install -r "$APK_PATH"
-            echo "Verifying package installation"
+          script: >
+            set -eu;
+            AAB_PATH=$(find bin -maxdepth 1 -name "*.aab" -print -quit);
+            if [ -z "${AAB_PATH:-}" ]; then echo "No AAB artifact found in bin/"; exit 1; fi;
+            echo "Installing $AAB_PATH";
+            adb install -r "$AAB_PATH";
+            echo "Verifying package installation";
             adb shell pm list packages | grep -F "app.helloabc.simdlor"

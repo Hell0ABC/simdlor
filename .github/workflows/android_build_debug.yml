@@ -54,7 +54,7 @@ jobs:
           name: android-builds
           path: |
             bin/*.apk
-            app/build.log
+            logs/build.log
 
   test:
     runs-on: ubuntu-latest
