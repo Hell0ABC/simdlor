@@ -85,9 +85,9 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
           script: |
             set -euo pipefail
-            APK_PATH=$(find bin -maxdepth 1 -name "*.apk" | head -n 1)
+            APK_PATH=$(find bin -maxdepth 1 -name "*.aab" | head -n 1)
             if [[ -z "${APK_PATH:-}" ]]; then
-              echo "No APK artifact found in bin/"
+              echo "No AAB artifact found in bin/"
               exit 1
             fi
             echo "Installing $APK_PATH"

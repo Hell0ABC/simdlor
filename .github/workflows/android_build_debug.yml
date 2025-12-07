@@ -85,15 +85,16 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
-          shell: bash
           script: |
-            set -euo pipefail
-            APK_PATH=$(find bin -maxdepth 1 -name "*.apk" | head -n 1)
-            if [[ -z "${APK_PATH:-}" ]]; then
-              echo "No APK artifact found in bin/"
-              exit 1
-            fi
-            echo "Installing $APK_PATH"
-            adb install -r "$APK_PATH"
-            echo "Verifying package installation"
-            adb shell pm list packages | grep -F "app.helloabc.simdlor"
+            bash -lc '
+              set -euo pipefail
+              APK_PATH=$(find bin -maxdepth 1 -name "*.apk" | head -n 1)
+              if [[ -z "${APK_PATH:-}" ]]; then
+                echo "No APK artifact found in bin/"
+                exit 1
+              fi
+              echo "Installing $APK_PATH"
+              adb install -r "$APK_PATH"
+              echo "Verifying package installation"
+              adb shell pm list packages | grep -F "app.helloabc.simdlor"
+            '
