@@ -20,10 +20,20 @@ Logger.setLevel(logging.INFO)
 
 
 def _log(level_method, msg, *args):
-    if KivyLogger:
-        getattr(KivyLogger, level_method.__name__)(msg, *args)
-    else:
-        level_method(msg, *args)
+    level_map = {
+        logging.Logger.debug: "debug",
+        logging.Logger.info: "info",
+        logging.Logger.warning: "warning",
+        logging.Logger.error: "error",
+        logging.Logger.exception: "exception",
+    }
+    level_name = level_map.get(level_method)
+    
+    if level_name:
+        if KivyLogger:
+            getattr(KivyLogger, level_name)(msg, *args)
+        else:
+            level_method(msg, *args)
 
 
 def is_android() -> bool:
