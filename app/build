@@ -14,7 +14,7 @@ VENV_DIR="$WORK_DIR/venv"
 LOG_DIR="$WORK_DIR/logs"
 
 mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/build_$(date +%Y.%m.%d_%H:%M:%S).log"
+LOG_FILE="$LOG_DIR/build_$(date +%Y.%m.%d_%H.%M.%S).log"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 # Functions
