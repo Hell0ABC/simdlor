@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+set -euo pipefail
+#set -x
+
+# Default values
+MODE="release"
+CLEAN=0
+PLATFORM="android"
+DEPLOY=0
+SETUP=0
+
+WORK_DIR=$(pwd)
+VENV_DIR="$WORK_DIR/venv"
+LOG_DIR="$WORK_DIR/logs"
+
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/build_$(date +%Y.%m.%d_%H.%M.%S).log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+# Functions
+function logError()
+{
+    echo -e "\e[1;31mERROR: $*\e[0m" >&2
+    exit 1
+}
+
+function logWarning()
+{
+    echo -e "\e[1;93mWARNING: $*\e[0m" >&2
+}
+
+function logInfo()
+{
+    echo -e "\e[1;32mSUCCESS!\e[0m" >&2
+}
+
+function usage()
+{
+	cat <<EOF
+Usage $0 [OPTIONS]
+
+Options:
+	-h, --help           Show this help message
+	-m, --mode MODE      Choose mode between debug and release (default release)
+	-c, --clean          (Optional) Clean building directory before build
+	-p, --platform       Choose platform for build between Android and iOS (default android)
+	--deploy             (Optional) Install app to device via adb (device must be connected)
+	--setup              (Optional) Install requirement packages
+EOF
+	exit 2
+}
+
+# Parsing ops
+while [[ $# -gt 0 ]]; do
+	case $1 in
+		-h | --help) usage ;;
+		-m | --mode) MODE=$2; shift 2 ;;
+		-c | --clean) CLEAN=1; shift ;;
+		-p | --platform) PLATFORM=$2; shift 2 ;;
+		--deploy) DEPLOY=1; shift ;;
+		--setup) SETUP=1; shift ;;
+		*) echo "Unknown argument $1"; exit 1 ;;
+	esac
+done
+
+cat <<EOF
+OPTIONS
+=================================
+MODE              : $MODE
+CLEAN             : $CLEAN
+PLATFORM          : $PLATFORM
+DEPLOY            : $DEPLOY
+SETUP             : $SETUP
+=================================
+EOF
+
+#  Checking values
+if [[ "$MODE" != "debug" && "$MODE" != "release" ]]; then
+    logError "Wrong mode, please check usage"
+    usage
+fi
+if [[ "$PLATFORM" != "android" && "$PLATFORM" != "ios" ]]; then
+	logError "Wrong platform, please check usage"
+	usage
+fi
+
+#==== SETUP SYSTEM ====
+if [[ "$SETUP" -eq 1 ]]; then
+	echo "[*] Starting system setup"
+	echo "[*][*] Updating repo information"
+	sudo apt update
+	echo "[*][*] Installing essensial packeges"
+	sudo apt install -y git \
+		zip \
+		unzip \
+		openjdk-17-jdk \
+		python3-pip \
+		autoconf \
+		libtool \
+		pkg-config \
+		zlib1g-dev \
+		libncurses5-dev \
+		libncursesw5-dev \
+		cmake \
+		libffi-dev \
+		libssl-dev
+	logInfo
+fi
+#==== SETUP VENV ====
+echo "[*] Starting venv setup"
+echo "[*][*] Creating venv dir"
+python3 -m venv "$VENV_DIR"
+echo "[*][*] Activating virtual environment"
+source "$VENV_DIR/bin/activate"
+echo "[*][*] Installing requirements"
+pip install -r requirements.txt
+logInfo
+#==== PRE-BUILD ==== 
+echo "[*] Starting pre-build in $MODE mode"
+cd "$WORK_DIR" || logError "Failed to change directory"
+[[ -f app/config.py ]] || logError "config file not found"
+sed -i "s/^BUILD_TYPE = .*/BUILD_TYPE = \"$MODE\"/" app/config.py
+echo "[*] BUILD_TYPE set to $MODE in config.py"
+[[ -f buildozer.spec.template ]] || logError "buildozer.spec.template not found"
+echo "[*] Creating buildozer.spec from template"
+cp buildozer.spec.template buildozer.spec
+echo "[*] Cleaning previous builds"
+rm -f bin/*
+logInfo
+#==== CLEAN ====
+if [[ "$CLEAN" -eq 1 ]]; then
+	echo "[*] Cleaning .builder directory"
+	buildozer $PLATFORM clean
+	logInfo
+fi
+#==== BUILD ====
+echo "[*] Start build"
+buildozer $PLATFORM $MODE
+logInfo
+#==== INSTALL ON DEVICE ====
+if [[ "$DEPLOY" -eq 1 ]]; then
+    echo "[*] Start installing on the device"
+	if [[ "$PLATFORM" == "android" ]]; then
+		APK_COUNT=$(find bin/ -maxdepth 1 -name "*.apk" 2>/dev/null | wc -l)
+		AAB_COUNT=$(find bin/ -maxdepth 1 -name "*.aab" 2>/dev/null | wc -l)
+		
+		if [[ $APK_COUNT -gt 1 || $AAB_COUNT -gt 1 ]]; then
+			logError "Multiple APK or AAB files found in bin/. Please clean before building."
+		fi
+		
+		if [[ $APK_COUNT -eq 1 ]]; then
+			APK_PATH=$(find bin/ -maxdepth 1 -name "*.apk")
+			adb install -r "$APK_PATH"
+		elif [[ $AAB_COUNT -eq 1 ]]; then
+			logError "AAB files must be uploaded to Google Play Console. Automatic installation not supported."
+		else
+			logError "No APK or AAB file found in bin/"
+		fi
+	fi
+    logInfo
+fi
