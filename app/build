@@ -149,7 +149,8 @@ if [[ "$DEPLOY" -eq 1 ]]; then
 		fi
 		
 		if [[ $APK_COUNT -eq 1 ]]; then
-			adb install -r bin/*.apk
+			APK_PATH=$(find bin/ -maxdepth 1 -name "*.apk")
+			adb install -r "$APK_PATH"
 		elif [[ $AAB_COUNT -eq 1 ]]; then
 			logError "AAB files must be uploaded to Google Play Console. Automatic installation not supported."
 		else
