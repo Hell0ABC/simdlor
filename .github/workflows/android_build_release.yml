@@ -2,9 +2,9 @@ name: Android Release Build
 
 on:
   push:
-    branches: [main/]
+    branches: [main]
   pull_request:
-    branches: [main/]
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -39,11 +39,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
       - name: Run pytest
         run: python -m pytest
 
@@ -59,4 +54,4 @@ jobs:
           name: android-builds
           path: |
             bin/*.aab
-            logs/build.log
+            logs/*.log
