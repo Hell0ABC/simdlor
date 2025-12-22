@@ -9,7 +9,7 @@ from kivymd.uix.dialog import (
     MDDialogContentContainer,
     MDDialogHeadlineText,
 )
-from kivymd.uix.button import MDButton, MDButtonText
+from kivymd.uix.button import MDButton, MDButtonText, MDButtonIcon
 from kivy.uix.widget import Widget
 from kivy.uix.scrollview import ScrollView
 from kivy.metrics import dp
@@ -176,35 +176,60 @@ class LoadingScreen(MDScreen):
         if self.ids.progress_bar.value == 100:
             self.manager.transition.direction = 'up'
 
-# BROKEN
+
 class DatabaseScreen(MDScreen):
     db = ObjectProperty(None)
 
-    def button_press(self, instance):
+    def switch_to_table(self, instance):
         self.manager.transition.direction = 'left'
         self.manager.current = 'table'
-        self.db.selected_table = instance.text # TODO 'MDButton' object has no attribute 'text'
-        self.db.table_values = self.db.get_table_values(self.db.selected_table)
+        Logger.info("DatabaseScreen: Switching to table screen for table button pressed")
+        #self.db.selected_table = instance.text # TODO 'MDButton' object has no attribute 'text'
+        #self.db.table_values = self.db.get_table_values(self.db.selected_table)
+
+    def switch_to_home(self, instance):
+        self.manager.transition.direction = 'right'
+        self.manager.current = 'home'
+        Logger.info("DatabaseScreen: Returning to home screen")
 
     def on_enter(self):
         if not self.db:
             self.db = getattr(App.get_running_app(), 'db', None)
+            Logger.debug("DatabaseScreen: Retrieved database from app instance")
 
         if not self.db:
+            Logger.info("DatabaseScreen: No database available; showing placeholder")
             self.ids.db_box_layout.clear_widgets()
+            Logger.debug("DatabaseScreen: Cleared existing widgets in db_box_layout")
             self.ids.db_box_layout.add_widget(MDLabel(text="No database selected"))
-            return
-
-        self.ids.db_box_layout.clear_widgets()
-        for name in self.db.tables:
+            Logger.debug("DatabaseScreen: Added 'No database selected' label")
             btn = MDButton(
-                on_release=self.button_press,
+                MDButtonText(text="Go to Home Screen"),
+                MDButtonIcon(icon="home"),
+                on_release=self.switch_to_home,
                 size_hint=(1, None),
                 height="48dp",
                 pos_hint={"center_x": .5},
             )
-            btn.add_widget(MDButtonText(text=str(name)))
             self.ids.db_box_layout.add_widget(btn)
+            Logger.debug("DatabaseScreen: Added 'Go to Home Screen' button")
+            return
+
+        self.ids.db_box_layout.clear_widgets()
+        Logger.debug("DatabaseScreen: Cleared existing widgets in db_box_layout")
+        self.tables = self.db.list_tables()
+        Logger.info("DatabaseScreen: Listing tables: %s", self.tables)
+        for table_name in self.tables:
+            btn = MDButton(
+                MDButtonText(text=str(table_name)),
+                MDButtonIcon(icon="pencil"),
+                on_release=self.switch_to_table,
+                size_hint=(1, None),
+                height="48dp",
+                pos_hint={"center_x": 0.5},
+            )
+            self.ids.db_box_layout.add_widget(btn)
+            Logger.debug("DatabaseScreen: Added button for table '%s'", table_name)
 
 #Not tested
 class TableScreen(MDScreen):

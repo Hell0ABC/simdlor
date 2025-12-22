@@ -8,7 +8,7 @@ from ui.screens import LoadingScreen, TableScreen, DatabaseScreen, HomeScreen
 from app.config import KV_DIR, KV_APP, KV_SCREENS, KV_WIDGETS, BUILD_TYPE, LOG_LEVEL
 from app.storage import prepare_environment
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 class DatabaseApp(MDApp):
 
