@@ -1,4 +1,5 @@
 #:kivy 2.1.0
+
 <HomeScreen>:
     name: "home"
     MDBoxLayout:
@@ -39,17 +40,116 @@
 
 <DatabaseScreen>:
     id: database_screen
-    MDBoxLayout:
-        id: db_box_layout
-        orientation: 'horizontal'
-        
+
+    FloatLayout:
         MDBoxLayout:
-            id: DS_header
-            # orientation: 'vertical'
-            MDLabel:
-                text: 'This is header'
+            # Main layout
+            orientation: "vertical"
+            size_hint: 1, 1
+            pos_hint: {"x": 0, "y": 0}
+
+            MDBoxLayout:
+                # Header
+                id: ds_header
+                md_bg_color: 0.502, 0.337, 0.702, 1 # TODO add flexible color support
+                size_hint: 1, .3
+
+                MDLabel:
+                    padding: "15dp"
+                    text: root.db_label
+
+            RecycleView:
+                id: ds_table_list
+                viewclass: 'TableItem'
+                data: root.table_items
+                size_hint_y: 1
+                RecycleBoxLayout:
+                    default_size: None, dp(56)
+                    default_size_hint: 1, None
+                    size_hint_y: None
+                    height: self.minimum_height
+                    orientation: 'vertical'
+                    
+                    
+            MDBoxLayout:
+                # Bottom
+                adaptive_height: True
+                padding: dp(10), dp(10)
+
+                MDCard:
+                    # Search Bar
+                    # TODO Search function for table name in list on the screen and filter the list accordingly
+                    id: ds_searchbar
+                    size_hint: 1, None
+                    height: "64dp"
+                    padding: "10dp"
+                    spacing: "12dp"
+                    radius: [50, 50, 50, 50]
+                    md_bg_color: 0.953, 0.929, 0.969, 1
+                    elevation: 1
+
+                    MDBoxLayout:
+                        orientation: "horizontal"
+                        spacing: "12dp"
+
+                        MDIconButton:
+                            # Search icon
+                            size_hint_y: 1
+                            size_hint_x: None
+                            width: dp(40)
+                            icon: "magnify"
+
+                        MDLabel:
+                            size_hint_y: 1
+                            text: "Search"
 
 
+                        FloatLayout:
+                            MDFabButton:
+                                id: fab_menu
+                                icon: "dots-vertical"
+                                pos_hint: {'right': 1, 'y': 0}
+                                size_hint: None, None
+                                on_release: root.toggle_fab_menu()                            
+
+                            MDFabButton:
+                                id: fab_save_btn
+                                size_hint: None, None
+                                size: dp(56), dp(56)
+                                opacity: 0
+                                disabled: True
+                                theme_bg_color: "Custom"
+                                md_bg_color: 0.502, 0.337, 0.702, 1
+                                icon: "content-save"
+                                theme_icon_color: "Custom"
+                                icon_color: 1, 1, 1, 1
+                                on_release: root.action_save()
+
+                            MDFabButton:
+                                id: fab_new_table_btn
+                                size_hint: None, None
+                                size: dp(56), dp(56)
+                                opacity: 0
+                                disabled: True
+                                theme_bg_color: "Custom"
+                                md_bg_color: 0.502, 0.337, 0.702, 1
+                                icon: "plus"
+                                theme_icon_color: "Custom"
+                                icon_color: 1, 1, 1, 1
+                                on_release: root.action_new_table()
+
+                            MDFabButton:
+                                id: fab_edit_btn
+                                size_hint: None, None
+                                size: dp(56), dp(56)
+                                opacity: 0
+                                disabled: True
+                                theme_bg_color: "Custom"
+                                md_bg_color: 0.502, 0.337, 0.702, 1
+                                icon: "home"
+                                theme_icon_color: "Custom"
+                                icon_color: 1, 1, 1, 1
+                                on_release: root.action_home()
 
 
 <TableScreen>:

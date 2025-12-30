@@ -1,7 +1,7 @@
 from kivy.app import App
 from kivymd.uix.label import MDLabel
 from ui.widgets import ValueInput
-from kivy.properties import ObjectProperty
+from kivy.properties import BooleanProperty, ListProperty, StringProperty
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.dialog import (
     MDDialog,
@@ -9,11 +9,14 @@ from kivymd.uix.dialog import (
     MDDialogContentContainer,
     MDDialogHeadlineText,
 )
-from kivymd.uix.button import MDButton, MDButtonText, MDButtonIcon
+from kivymd.uix.button import MDButton, MDButtonText
 from kivy.uix.widget import Widget
 from kivy.uix.scrollview import ScrollView
 from kivy.metrics import dp
 from kivy.logger import Logger
+from kivy.animation import Animation
+from kivy.factory import Factory
+from kivy.clock import Clock
 
 from ui.widgets import ConnectForm
 from app.config import BASE_DIR
@@ -178,58 +181,185 @@ class LoadingScreen(MDScreen):
 
 
 class DatabaseScreen(MDScreen):
-    db = ObjectProperty(None)
+    table_items = ListProperty([])
+    db_label = StringProperty("Database\nUnknown")
+    fab_open = BooleanProperty(False)
+    _add_table_dialog = None
 
-    def switch_to_table(self, instance):
-        self.manager.transition.direction = 'left'
-        self.manager.current = 'table'
-        Logger.info("DatabaseScreen: Switching to table screen for table button pressed")
-        #self.db.selected_table = instance.text # TODO 'MDButton' object has no attribute 'text'
-        #self.db.table_values = self.db.get_table_values(self.db.selected_table)
-
-    def switch_to_home(self, instance):
-        self.manager.transition.direction = 'right'
-        self.manager.current = 'home'
-        Logger.info("DatabaseScreen: Returning to home screen")
-
-    def on_enter(self):
-        if not self.db:
-            self.db = getattr(App.get_running_app(), 'db', None)
-            Logger.debug("DatabaseScreen: Retrieved database from app instance")
-
-        if not self.db:
-            Logger.info("DatabaseScreen: No database available; showing placeholder")
-            self.ids.db_box_layout.clear_widgets()
-            Logger.debug("DatabaseScreen: Cleared existing widgets in db_box_layout")
-            self.ids.db_box_layout.add_widget(MDLabel(text="No database selected"))
-            Logger.debug("DatabaseScreen: Added 'No database selected' label")
-            btn = MDButton(
-                MDButtonText(text="Go to Home Screen"),
-                MDButtonIcon(icon="home"),
-                on_release=self.switch_to_home,
-                size_hint=(1, None),
-                height="48dp",
-                pos_hint={"center_x": .5},
-            )
-            self.ids.db_box_layout.add_widget(btn)
-            Logger.debug("DatabaseScreen: Added 'Go to Home Screen' button")
+    def on_enter(self, *args):
+        app = App.get_running_app()
+        db = getattr(app, "db", None)
+        if not db:
+            self.table_items = []
             return
 
-        self.ids.db_box_layout.clear_widgets()
-        Logger.debug("DatabaseScreen: Cleared existing widgets in db_box_layout")
-        self.tables = self.db.list_tables()
-        Logger.info("DatabaseScreen: Listing tables: %s", self.tables)
-        for table_name in self.tables:
-            btn = MDButton(
-                MDButtonText(text=str(table_name)),
-                MDButtonIcon(icon="pencil"),
-                on_release=self.switch_to_table,
-                size_hint=(1, None),
-                height="48dp",
-                pos_hint={"center_x": 0.5},
+        db_path = getattr(db, "db_path", None)
+        if db_path:
+            db_name = db_path.name
+        else:
+            db_name = "Database"
+        db_type = "SQLite" if db.__class__.__module__.endswith("sqlite_connector") else db.__class__.__name__
+        self.db_label = f"{db_name}\n{db_type}"
+
+        self._refresh_tables(db)
+
+    def _refresh_tables(self, db=None):
+        if db is None:
+            app = App.get_running_app()
+            db = getattr(app, "db", None)
+            if not db:
+                self.table_items = []
+                return
+        tables = db.list_tables() or []
+        self.table_items = [self._build_table_item(name) for name in tables]
+
+    def _build_table_item(self, table_name):
+        name = str(table_name)
+        return {
+            "table_name": name,
+            "on_open": lambda *_: self._open_table(name),
+        }
+
+    def _open_table(self, table_name):
+        app = App.get_running_app()
+        db = getattr(app, "db", None)
+        if not db:
+            notify("No database selected")
+            return
+        db.selected_table = table_name
+        self.manager.transition.direction = "left"
+        self.manager.current = "table"
+
+    def _anim_to(self, widget, *, x=None, y=None, opacity=None, enable=None, d=0.18, t="out_quad"):
+        anim = Animation(d=d, t=t)
+        if x is not None or y is not None:
+            anim &= Animation(x=x if x is not None else widget.x,
+                              y=y if y is not None else widget.y, d=d, t=t)
+        if opacity is not None:
+            anim &= Animation(opacity=opacity, d=d, t=t)
+        if enable is not None:
+            def _set(*_): widget.disabled = not enable
+            anim.bind(on_complete=lambda *_: _set())
+            if not enable:
+                widget.disabled = True
+            else:
+                widget.disabled = False
+        anim.start(widget)
+
+    def toggle_fab_menu(self):
+        fab = self.ids.fab_menu
+        gap = dp(70)
+
+        if not self.fab_open:
+            # initialize wrappers at the FAB position/size so animation starts from the menu
+            for i, btn in enumerate((self.ids.fab_new_table_btn, self.ids.fab_edit_btn, self.ids.fab_save_btn), start=1):
+                try:
+                    btn.size = fab.size
+                    btn.pos = fab.pos
+                    btn.opacity = 0
+                    btn.disabled = True
+                except Exception:
+                    pass
+
+            self._anim_to(self.ids.fab_new_table_btn, x=fab.x, y=fab.y + gap*1, opacity=1, enable=True)
+            self._anim_to(self.ids.fab_edit_btn, x=fab.x, y=fab.y + gap*2, opacity=1, enable=True, d=0.22)
+            self._anim_to(self.ids.fab_save_btn, x=fab.x, y=fab.y + gap*3, opacity=1, enable=True, d=0.26)
+            self.fab_open = True
+        else:
+            for btn in (self.ids.fab_new_table_btn, self.ids.fab_edit_btn, self.ids.fab_save_btn):
+                self._anim_to(btn, x=fab.x, y=fab.y, opacity=0, enable=False, d=0.18)
+            self.fab_open = False
+
+    def close_fab_menu(self):
+        self.fab_open = False
+
+    def action_new_table(self):
+        Logger.debug("DatabaseScreen: New table action triggered")
+        if self._add_table_dialog is None:
+            # Create the TableRedactorForm from KV and wrap into dialog
+            content = Factory.TableRedactorForm()
+            try:
+                content.db_label = self.db_label
+            except Exception:
+                pass
+            # start hidden for animation
+            content.opacity = 0
+            try:
+                # nudge down a bit to animate upwards
+                content.y = content.y - 24
+            except Exception:
+                pass
+
+            self._add_table_dialog = MDDialog(
+                MDDialogHeadlineText(text="Create table"),
+                MDDialogContentContainer(content, orientation="vertical"),
+                MDDialogButtonContainer(
+                    Widget(),
+                    MDButton(MDButtonText(text="Cancel"), style="text", on_release=lambda *_: self._dismiss_add_table_dialog()),
+                    MDButton(MDButtonText(text="Create"), style="text", on_release=lambda *_: self._create_table(content)),
+                    spacing="8dp",
+                ),
             )
-            self.ids.db_box_layout.add_widget(btn)
-            Logger.debug("DatabaseScreen: Added button for table '%s'", table_name)
+
+        self._add_table_dialog.open()
+
+        # animate content into view on next frame (ensure layouted)
+        def _anim(dt):
+            try:
+                content = self._add_table_dialog.content_cls.children[0]
+            except Exception:
+                content = None
+            if content:
+                anim = Animation(opacity=1, d=0.22, t="out_quad") + Animation(y=content.y + 24, d=0.18, t="out_quad")
+                anim.start(content)
+
+        Clock.schedule_once(_anim, 0.06)
+
+    def action_home(self):
+        if self.manager:
+            Logger.debug("DatabaseScreen: Navigating to home screen")
+            self.manager.transition.direction = "right"
+            self.manager.current = "home"
+
+    def action_save(self):
+        app = App.get_running_app()
+        db = getattr(app, "db", None)
+        if not db:
+            Logger.warning("DatabaseScreen: Save action invoked with no database")
+            notify("No database selected")
+            return
+
+        if hasattr(db, "save"):
+            db.save()
+            notify("Saved")
+        elif hasattr(db, "commit"):
+            db.commit()
+            notify("Saved")
+        else:
+            Logger.critical("DatabaseScreen: DB object has no save or commit method")
+            notify("Save not supported")
+
+
+    def handle_fab_action(self, action):
+        self.close_fab_menu()
+        if action == "home":
+            self.go_home()
+        elif action == "add":
+            self.open_add_table_dialog()
+        elif action == "save":
+            self.save_changes()
+
+    def _dismiss_add_table_dialog(self):
+        if self._add_table_dialog:
+            self._add_table_dialog.dismiss()
+
+    def _create_table(self, form):
+        app = App.get_running_app()
+        db = getattr(app, "db", None)
+        if not db:
+            notify("No database selected")
+            return
+
 
 #Not tested
 class TableScreen(MDScreen):

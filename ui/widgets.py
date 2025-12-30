@@ -1,7 +1,9 @@
 from kivy.uix.boxlayout import BoxLayout
+from kivy.metrics import dp
 from kivymd.uix.textfield import MDTextField
+from kivymd.uix.boxlayout import MDBoxLayout
 from kivy.uix.boxlayout import BoxLayout
-from kivy.properties import BooleanProperty, ListProperty, StringProperty
+from kivy.properties import BooleanProperty, ListProperty, ObjectProperty, StringProperty
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.button import MDButton, MDButtonText
 from kivymd.uix.textfield import MDTextField
@@ -103,6 +105,10 @@ class Content(BoxLayout):
     pass
 
 
+class TableRedactorForm(MDBoxLayout):
+    db_label = StringProperty("Database\nUnknown")
+
+
 class ValueInput(MDTextField):
     def __init__(self, column, value_id, **kw):
         self.column = column
@@ -110,3 +116,8 @@ class ValueInput(MDTextField):
         self.background_color = 'red'
         self.mode = 'rectangle'
         super().__init__(**kw)
+
+
+class TableItem(BoxLayout):
+    table_name = StringProperty("")
+    on_open = ObjectProperty(lambda *_: None)

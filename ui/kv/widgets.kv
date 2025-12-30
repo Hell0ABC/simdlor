@@ -141,7 +141,83 @@
             id: ssl
             active: False
 
+<TableRedactorForm@MDBoxLayout>: # TODO
+    MDBoxLayout:
+        # Header
+        id: tr_header
+        md_bg_color: 0.502, 0.337, 0.702, 1 # TODO add flexible color support
+        size_hint: 1, .3
 
+        MDLabel:
+            text: root.db_label
+
+        MDButton:
+            MDIconButton:
+                padding: "15dp"
+                icon: "close-box"
+
+    MDBoxLayout:
+        # Body
+        MDTextField:
+            mode: "filled"
+            MDTextFieldHintText:
+                text: "Table name"
+        RecycleView:
+            viewclass: 'ColumnField'
+            RecycleBoxLayout:
+                default_size: None, dp(56)
+                default_size_hint: 1, None
+                size_hint_y: None
+                height: self.minimum_height
+                orientation: 'vertical'
+
+                MDButton:
+                    pos_hint: .5, .5
+                    MDIconButton:
+                        icon: "plus"
+
+
+<ColumnField@MDBoxLayout>:
+    MDTextField:
+        mode: "outlined"
+
+        MDTextFieldHintText:
+            text: "Column name"
+
+    MDTextField:
+        mode: "outlined"
+
+        MDTextFieldHintText:
+            text: "Column type"
+
+    MDBoxLayout:
+        orientation: "vertical"
+
+        MDLabel:
+            text: "PK"
+        MDCheckbox:
+    
+
+
+<TableItem>:
+    table_name: ""
+    MDButton:
+        theme_width: "Custom"
+        size_hint: 1, None
+        padding: 0, 0
+        on_release: root.on_open()
+        MDButtonText:
+            pos_hint: {'center_y': .5}
+            halign: "left"
+            text: root.table_name
+    MDButton:
+        MDButtonIcon:
+            pos_hint: {'center_x': .5, 'center_y': .5}
+            icon: "trash-can-outline"
+    MDButton:
+        MDButtonIcon:
+            pos_hint: {'center_x': .5, 'center_y': .5}
+            icon: "pencil"
 
 <Content>
     orientation: "vertical"
@@ -156,15 +232,3 @@
             Factory.TableScreen().delete_row(self.text)
             app.dialog.dismiss()
         multiline: False
-
-<SavePopup@MDDialog>:
-    title: 'Save'
-    size_hint: .4, .4
-    text: 'Saved!'
-
-<DeletePopup@MDDialog>:
-    id: delete_popup
-    title: 'Delete'
-    text: 'Delete'
-    size_hint: .4, .4
-    content_cls: Content
