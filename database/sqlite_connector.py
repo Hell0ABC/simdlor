@@ -231,8 +231,15 @@ class Database:
         table = self._validate_table(table)
         sql = f'DROP TABLE IF EXISTS "{table}"'
         Logger.warning("DB: drop table %s", table)
-        self._conn.execute(sql)
-        self._conn.commit()
+        fk_enabled = self._get_foreign_keys()
+        try:
+            if fk_enabled:
+                self._set_foreign_keys(False)
+            self._conn.execute(sql)
+            self._conn.commit()
+        finally:
+            if fk_enabled:
+                self._set_foreign_keys(True)
 
     def commit(self) -> None:
         Logger.debug("DB: commit")

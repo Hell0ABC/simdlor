@@ -12,6 +12,15 @@ from kivy.properties import BooleanProperty, ListProperty, ObjectProperty, Strin
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.card import MDCard
+from kivymd.uix.dialog import (
+    MDDialog,
+    MDDialogButtonContainer,
+    MDDialogContentContainer,
+    MDDialogHeadlineText,
+)
+from kivymd.uix.button import MDButton, MDButtonText
+from kivymd.uix.label import MDLabel
+from kivy.uix.widget import Widget
 from kivy.logger import Logger
 from kivy.app import App
 
@@ -211,9 +220,36 @@ class SearchBar(MDCard):
             manager.current = "home"
 
     def do_search(self, text: str):
-        # TODO: implement search functionality
-        notify("Not implemented")
-        pass
+        query = (text or "").strip()
+        app = App.get_running_app()
+        db = getattr(app, "db", None)
+        if not db:
+            Logger.warning("SearchBar: Search invoked with no database")
+            notify("No database selected")
+            return
+
+        manager = getattr(app, "root", None)
+        if not manager:
+            Logger.error("SearchBar: Screen manager not found")
+            return
+
+        try:
+            screen = manager.get_screen("database")
+        except Exception:
+            screen = manager.current_screen
+
+        if not screen or not hasattr(screen, "_refresh_tables"):
+            Logger.error("SearchBar: Database screen not available for search")
+            return
+
+        if not query:
+            screen._refresh_tables(db)
+            return
+
+        needle = query.casefold()
+        tables = db.list_tables() or []
+        filtered = [name for name in tables if needle in str(name).casefold()]
+        screen.table_items = [screen._build_table_item(name) for name in filtered]
 
     def _get_table_editor_modal(self):
         app = App.get_running_app()
@@ -508,9 +544,80 @@ class TableItem(BoxLayout):
     on_open = ObjectProperty(lambda *_: None)
 
     def do_delete_table(self, table: str):
-        # TODO implement delete table functionality
-        notify("Not implemented")
-        pass
+        name = (self.table_name or table or "").strip()
+        if not name:
+            notify("No table selected")
+            return
+        app = App.get_running_app()
+        db = getattr(app, "db", None)
+        if not db:
+            notify("No database selected")
+            return
+        if not hasattr(db, "drop_table"):
+            notify("Delete not supported")
+            return
+        dialog = getattr(app, "_delete_table_dialog", None)
+        label = getattr(app, "_delete_table_label", None)
+        if not dialog:
+            label = MDLabel(text="", theme_text_color="Secondary")
+            dialog = MDDialog(
+                MDDialogHeadlineText(text="Delete table?"),
+                MDDialogContentContainer(
+                    label,
+                    orientation="vertical",
+                ),
+                MDDialogButtonContainer(
+                    Widget(),
+                    MDButton(
+                        MDButtonText(text="Cancel"),
+                        style="text",
+                        on_release=lambda *_: dialog.dismiss(),
+                    ),
+                    MDButton(
+                        MDButtonText(text="Delete"),
+                        style="text",
+                        on_release=self._confirm_delete_table,
+                    ),
+                    spacing="8dp",
+                ),
+            )
+            app._delete_table_dialog = dialog
+            app._delete_table_label = label
+        app._delete_table_name = name
+        if label:
+            label.text = f'Delete table "{name}"? This cannot be undone.'
+        dialog.open()
+
+    def _confirm_delete_table(self, *_):
+        app = App.get_running_app()
+        name = (getattr(app, "_delete_table_name", "") or "").strip()
+        if not name:
+            notify("No table selected")
+            return
+        dialog = getattr(app, "_delete_table_dialog", None)
+        if dialog:
+            dialog.dismiss()
+        db = getattr(app, "db", None)
+        if not db:
+            notify("No database selected")
+            return
+        try:
+            db.drop_table(name)
+        except Exception:
+            Logger.exception("TableItem: failed to delete table %s", name)
+            notify("Delete failed")
+            return
+        if getattr(db, "selected_table", None) == name:
+            db.selected_table = None
+        root = getattr(app, "root", None)
+        if root and hasattr(root, "get_screen"):
+            try:
+                screen = root.get_screen("database")
+            except Exception:
+                screen = root.current_screen
+            if screen and hasattr(screen, "_refresh_tables"):
+                screen._refresh_tables(db)
+        notify("Table deleted")
 
     def do_edit_table(self, table: str):
         modal = self._get_table_editor_modal()

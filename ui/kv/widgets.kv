@@ -184,7 +184,7 @@
             on_release: root.open_search_menu()
 
 
-<TableEditorForm>: # TODO
+<TableEditorForm>:
     auto_dismiss: False
     size_hint: 1, 1
     MDBoxLayout:
@@ -325,13 +325,11 @@
             halign: "left"
             text: root.table_name
     MDButton:
-        # TODO implement delete functionality
         on_release: root.do_delete_table(None)
         MDButtonIcon:
             pos_hint: {'center_x': .5, 'center_y': .5}
             icon: "trash-can-outline"
     MDButton:
-        # TODO implement edit functionality
         on_release: root.do_edit_table(None)
         MDButtonIcon:
             pos_hint: {'center_x': .5, 'center_y': .5}
