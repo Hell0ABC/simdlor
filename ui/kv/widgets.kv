@@ -141,17 +141,61 @@
             id: ssl
             active: False
 
-<TableRedactorForm@MDBoxLayout>: # TODO
+<SearchBar>:
+    id: search_bar
+    size_hint_x: 1
+    size_hint_y: None
+    height: "56dp"
+    radius: [50,]
+    md_bg_color: (243/255), (237/255), (247/255), 1
+    padding: "8dp"
+    spacing: "8dp"
+
+    MDBoxLayout:
+        orientation: "horizontal"
+        spacing: "8dp"
+
+        MDIconButton:
+            icon: "magnify"
+            on_release: root.do_search(search_input.text)
+
+        MDTextField:
+            id: search_input
+            mode: "filled"
+            multiline: False            
+
+            fill_color_normal: 0, 0, 0, 0
+            fill_color_focus: 0, 0, 0, 0
+            line_color_normal: 0, 0, 0, 0
+            line_color_focus: 0, 0, 0, 0
+
+            size_hint_y: None
+            height: "40dp"
+            pos_hint: {"center_y": 0.5}
+
+            on_text_validate: root.do_search(self.text)
+
+            MDTextFieldHintText: 
+                text: root.hint_text            
+
+        MDIconButton:
+            id: menu_btn
+            icon: "dots-vertical"
+            on_release: root.open_search_menu()
+
+
+<TableEditorForm>: # TODO
     MDBoxLayout:
         # Header
-        id: tr_header
+        id: tef_header
         md_bg_color: 0.502, 0.337, 0.702, 1 # TODO add flexible color support
         size_hint: 1, .3
 
         MDLabel:
-            text: root.db_label
+            text: "Hello" #root.db_label
 
         MDButton:
+            #on_release: root.close
             MDIconButton:
                 padding: "15dp"
                 icon: "close-box"
@@ -211,10 +255,14 @@
             halign: "left"
             text: root.table_name
     MDButton:
+        # TODO implement delete functionality
+        on_release: root.do_delete_table(None)
         MDButtonIcon:
             pos_hint: {'center_x': .5, 'center_y': .5}
             icon: "trash-can-outline"
     MDButton:
+        # TODO implement edit functionality
+        on_release: root.do_edit_table(None)
         MDButtonIcon:
             pos_hint: {'center_x': .5, 'center_y': .5}
             icon: "pencil"

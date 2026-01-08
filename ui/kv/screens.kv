@@ -76,80 +76,8 @@
                 adaptive_height: True
                 padding: dp(10), dp(10)
 
-                MDCard:
-                    # Search Bar
-                    # TODO Search function for table name in list on the screen and filter the list accordingly
-                    id: ds_searchbar
-                    size_hint: 1, None
-                    height: "64dp"
-                    padding: "10dp"
-                    spacing: "12dp"
-                    radius: [50, 50, 50, 50]
-                    md_bg_color: 0.953, 0.929, 0.969, 1
-                    elevation: 1
-
-                    MDBoxLayout:
-                        orientation: "horizontal"
-                        spacing: "12dp"
-
-                        MDIconButton:
-                            # Search icon
-                            size_hint_y: 1
-                            size_hint_x: None
-                            width: dp(40)
-                            icon: "magnify"
-
-                        MDLabel:
-                            size_hint_y: 1
-                            text: "Search"
-
-
-                        FloatLayout:
-                            MDFabButton:
-                                id: fab_menu
-                                icon: "dots-vertical"
-                                pos_hint: {'right': 1, 'y': 0}
-                                size_hint: None, None
-                                on_release: root.toggle_fab_menu()                            
-
-                            MDFabButton:
-                                id: fab_save_btn
-                                size_hint: None, None
-                                size: dp(56), dp(56)
-                                opacity: 0
-                                disabled: True
-                                theme_bg_color: "Custom"
-                                md_bg_color: 0.502, 0.337, 0.702, 1
-                                icon: "content-save"
-                                theme_icon_color: "Custom"
-                                icon_color: 1, 1, 1, 1
-                                on_release: root.action_save()
-
-                            MDFabButton:
-                                id: fab_new_table_btn
-                                size_hint: None, None
-                                size: dp(56), dp(56)
-                                opacity: 0
-                                disabled: True
-                                theme_bg_color: "Custom"
-                                md_bg_color: 0.502, 0.337, 0.702, 1
-                                icon: "plus"
-                                theme_icon_color: "Custom"
-                                icon_color: 1, 1, 1, 1
-                                on_release: root.action_new_table()
-
-                            MDFabButton:
-                                id: fab_edit_btn
-                                size_hint: None, None
-                                size: dp(56), dp(56)
-                                opacity: 0
-                                disabled: True
-                                theme_bg_color: "Custom"
-                                md_bg_color: 0.502, 0.337, 0.702, 1
-                                icon: "home"
-                                theme_icon_color: "Custom"
-                                icon_color: 1, 1, 1, 1
-                                on_release: root.action_home()
+                SearchBar:
+                    id: search_bar
 
 
 <TableScreen>:

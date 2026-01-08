@@ -317,6 +317,8 @@ class DatabaseScreen(MDScreen):
 
     def action_home(self):
         if self.manager:
+            app = App.get_running_app()
+            app.db = None
             Logger.debug("DatabaseScreen: Navigating to home screen")
             self.manager.transition.direction = "right"
             self.manager.current = "home"
