@@ -184,7 +184,6 @@ class DatabaseScreen(MDScreen):
     table_items = ListProperty([])
     db_label = StringProperty("Database\nUnknown")
     fab_open = BooleanProperty(False)
-    _add_table_dialog = None
 
     def on_enter(self, *args):
         app = App.get_running_app()
@@ -273,36 +272,6 @@ class DatabaseScreen(MDScreen):
     def close_fab_menu(self):
         self.fab_open = False
 
-    def action_new_table(self):
-        Logger.debug("DatabaseScreen: New table action triggered")
-        if self._add_table_dialog is None:
-            # Create the TableRedactorForm from KV and wrap into dialog
-            content = Factory.TableRedactorForm()
-            try:
-                content.db_label = self.db_label
-            except Exception:
-                pass
-            # start hidden for animation
-            content.opacity = 0
-            try:
-                # nudge down a bit to animate upwards
-                content.y = content.y - 24
-            except Exception:
-                pass
-
-            self._add_table_dialog = MDDialog(
-                MDDialogHeadlineText(text="Create table"),
-                MDDialogContentContainer(content, orientation="vertical"),
-                MDDialogButtonContainer(
-                    Widget(),
-                    MDButton(MDButtonText(text="Cancel"), style="text", on_release=lambda *_: self._dismiss_add_table_dialog()),
-                    MDButton(MDButtonText(text="Create"), style="text", on_release=lambda *_: self._create_table(content)),
-                    spacing="8dp",
-                ),
-            )
-
-        self._add_table_dialog.open()
-
         # animate content into view on next frame (ensure layouted)
         def _anim(dt):
             try:
@@ -350,17 +319,6 @@ class DatabaseScreen(MDScreen):
             self.open_add_table_dialog()
         elif action == "save":
             self.save_changes()
-
-    def _dismiss_add_table_dialog(self):
-        if self._add_table_dialog:
-            self._add_table_dialog.dismiss()
-
-    def _create_table(self, form):
-        app = App.get_running_app()
-        db = getattr(app, "db", None)
-        if not db:
-            notify("No database selected")
-            return
 
 
 #Not tested

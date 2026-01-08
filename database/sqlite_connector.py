@@ -2,6 +2,7 @@ import logging
 import datetime as _dt
 import re
 import sqlite3
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -101,6 +102,57 @@ class Database:
         info = [dict(row) for row in rows]
         Logger.debug("DB: describe %s -> %s", table, info)
         return info
+
+    def create_table(self, table: str, columns: Sequence[Mapping[str, Any]]) -> None:
+        table = self._validate_table(table)
+        sql = self._build_create_table_sql(table, columns)
+        Logger.info("DB: create table %s", table)
+        self._conn.execute(sql)
+        self._conn.commit()
+
+    def rebuild_table(self, table: str, new_table: str, columns: Sequence[Mapping[str, Any]]) -> None:
+        table = self._validate_table(table)
+        new_table = self._validate_table(new_table)
+        if not columns:
+            raise ValueError("rebuild_table: columns is empty")
+
+        existing = set(self.list_tables())
+        if new_table != table and new_table in existing:
+            raise ValueError(f"Table already exists: {new_table}")
+
+        old_columns = {col["name"] for col in (self.describe_table(table) or [])}
+        temp_table = self._make_temp_table_name(new_table, existing)
+
+        create_sql = self._build_create_table_sql(temp_table, columns)
+        target_columns = [self._validate_column(col["name"], temp_table) for col in columns]
+
+        select_exprs = []
+        for col in columns:
+            source = (col.get("source_name") or col.get("name") or "").strip()
+            if source and source in old_columns:
+                source = self._validate_column(source, table)
+                select_exprs.append(f'"{source}"')
+            else:
+                select_exprs.append("NULL")
+
+        insert_cols = ", ".join(f'"{name}"' for name in target_columns)
+        select_cols = ", ".join(select_exprs)
+        insert_sql = f'INSERT INTO "{temp_table}" ({insert_cols}) SELECT {select_cols} FROM "{table}"'
+
+        Logger.info("DB: rebuild table %s -> %s", table, new_table)
+        fk_enabled = self._get_foreign_keys()
+        try:
+            if fk_enabled:
+                self._set_foreign_keys(False)
+            with self.transaction():
+                self._conn.execute(create_sql)
+                self._conn.execute(insert_sql)
+                self._conn.execute(f'DROP TABLE "{table}"')
+                if temp_table != new_table:
+                    self._conn.execute(f'ALTER TABLE "{temp_table}" RENAME TO "{new_table}"')
+        finally:
+            if fk_enabled:
+                self._set_foreign_keys(True)
 
     def fetch_rows(
         self,
@@ -221,6 +273,14 @@ class Database:
             else:
                 self._conn.execute(sql).fetchall()
 
+    def _get_foreign_keys(self) -> bool:
+        row = self._conn.execute("PRAGMA foreign_keys").fetchone()
+        return bool(row[0]) if row else False
+
+    def _set_foreign_keys(self, enabled: bool) -> None:
+        state = "ON" if enabled else "OFF"
+        self._conn.execute(f"PRAGMA foreign_keys = {state}")
+
     def _validate_table(self, table: str) -> str:
         if not table or not self._IDENT_RE.match(table):
             raise ValueError(f"Incorrect table name: {table!r}")
@@ -232,6 +292,43 @@ class Database:
         if not column or not self._IDENT_RE.match(column):
             raise ValueError(f"Incorrect column name: {column!r}")
         return column
+
+    def _validate_column_type(self, column_type: str) -> str:
+        cleaned = (column_type or "").strip()
+        if not cleaned:
+            return "TEXT"
+        if any(ch in cleaned for ch in (";", "\n", "\r")):
+            raise ValueError(f"Incorrect column type: {column_type!r}")
+        return cleaned
+
+    def _build_create_table_sql(self, table: str, columns: Sequence[Mapping[str, Any]]) -> str:
+        if not columns:
+            raise ValueError("create_table: columns is empty")
+
+        col_defs = []
+        pk_cols = []
+        for col in columns:
+            name = self._validate_column(str(col.get("name", "")).strip(), table)
+            col_type = self._validate_column_type(col.get("type"))
+            col_defs.append(f'"{name}" {col_type}')
+            if col.get("is_pk"):
+                pk_cols.append(name)
+
+        if pk_cols:
+            pk = ", ".join(f'"{self._validate_column(name, table)}"' for name in pk_cols)
+            col_defs.append(f"PRIMARY KEY ({pk})")
+
+        cols_sql = ", ".join(col_defs)
+        return f'CREATE TABLE "{table}" ({cols_sql})'
+
+    def _make_temp_table_name(self, base: str, existing: set[str]) -> str:
+        safe_base = f"__tmp_{base}_{int(time.time() * 1000)}"
+        name = safe_base
+        counter = 1
+        while name in existing:
+            name = f"{safe_base}_{counter}"
+            counter += 1
+        return name
 
     def __del__(self) -> None:
         try:

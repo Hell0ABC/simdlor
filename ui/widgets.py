@@ -3,10 +3,12 @@ from kivy.metrics import dp
 from kivy.animation import Animation
 from kivy.factory import Factory
 from kivy.clock import Clock
+from kivy.uix.modalview import ModalView
+from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivy.uix.boxlayout import BoxLayout
-from kivy.properties import BooleanProperty, ListProperty, ObjectProperty, StringProperty
+from kivy.properties import BooleanProperty, ListProperty, ObjectProperty, StringProperty, NumericProperty
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.card import MDCard
@@ -176,9 +178,9 @@ class SearchBar(MDCard):
 
         if action == "Add":
             Logger.info("SearchBar: Add action triggered")
-            # TODO Table editor implementation
-            notify("Not implemented")
-            pass
+            modal = self._get_table_editor_modal()
+            if modal:
+                modal.open_new_table()
         elif action == "Save":
             Logger.info("SearchBar: Save action triggered")
             app = App.get_running_app()
@@ -213,9 +215,284 @@ class SearchBar(MDCard):
         notify("Not implemented")
         pass
 
-class TableEditorForm(MDBoxLayout):
-    db_label = StringProperty("Database\nUnknown")
-    # TODO: implement table editor form
+    def _get_table_editor_modal(self):
+        app = App.get_running_app()
+        modal = getattr(app, "_table_editor_modal", None)
+        if not modal:
+            modal = Factory.TableEditorForm()
+            app._table_editor_modal = modal
+        return modal
+
+class TableEditorForm(ModalView):
+    db_label = StringProperty("Table editor")
+    table_name = StringProperty("")
+    original_table_name = StringProperty("")
+    column_items = ListProperty([])
+    editing_table = BooleanProperty(False)
+
+    def on_open(self):
+        Clock.schedule_once(lambda *_: self._animate_in(), 0)
+
+    def open_new_table(self):
+        self.editing_table = False
+        self.table_name = ""
+        self.original_table_name = ""
+        self.db_label = "New table"
+        self.column_items = [self._build_column_item()]
+        self.open()
+
+    def open_existing_table(self, table_name: str):
+        name = (table_name or "").strip()
+        if not name:
+            self.open_new_table()
+            return
+        self.editing_table = True
+        self.table_name = name
+        self.original_table_name = name
+        self.db_label = f"Edit table\n{name}"
+        self._load_columns(name)
+        self.open()
+
+    def close(self):
+        content = self.ids.get("content")
+        if not content:
+            super().dismiss()
+            return
+        Animation.cancel_all(content)
+        anim = Animation(y=-content.height, d=0.22, t="out_quad")
+        def _finish(*_):
+            content.opacity = 0
+            super(TableEditorForm, self).dismiss()
+        anim.bind(on_complete=_finish)
+        anim.start(content)
+
+    def _animate_in(self):
+        content = self.ids.get("content")
+        if not content:
+            return
+        Animation.cancel_all(content)
+        content.opacity = 1
+        content.y = -content.height
+        Animation(y=0, d=0.25, t="out_quad").start(content)
+
+    def add_column(self):
+        items = list(self.column_items or [])
+        items.append(self._build_column_item())
+        self.column_items = items
+
+    def _build_column_item(
+        self,
+        name: str = "",
+        col_type: str = "",
+        is_pk: bool = False,
+        source_name: str | None = None,
+    ):
+        return {
+            "name": name,
+            "col_type": col_type,
+            "is_pk": is_pk,
+            "source_name": source_name,
+        }
+
+    def _load_columns(self, table_name: str):
+        app = App.get_running_app()
+        db = getattr(app, "db", None)
+        if not db:
+            Logger.warning("TableEditorForm: no database selected")
+            notify("No database selected")
+            self.column_items = [self._build_column_item()]
+            return
+        try:
+            columns = db.describe_table(table_name)
+        except Exception:
+            Logger.exception("TableEditorForm: failed to load table %s", table_name)
+            notify("Could not load table")
+            self.column_items = [self._build_column_item()]
+            return
+
+        items = []
+        for idx, column in enumerate(columns or []):
+            col_name = str(column.get("name", ""))
+            items.append(
+                self._build_column_item(
+                    col_name,
+                    str(column.get("type", "")),
+                    bool(column.get("pk")),
+                    col_name,
+                )
+            )
+        if not items:
+            items.append(self._build_column_item())
+        self.column_items = items
+
+    def save(self):
+        app = App.get_running_app()
+        db = getattr(app, "db", None)
+        if not db:
+            notify("No database selected")
+            return
+
+        table_name = (self.table_name or "").strip()
+        if not table_name:
+            notify("Table name is required")
+            return
+
+        columns = self._collect_columns()
+        if not columns:
+            return
+
+        try:
+            if self.editing_table:
+                original = (self.original_table_name or table_name).strip() or table_name
+                if table_name == original and self._columns_match_db(original, columns):
+                    self.close()
+                    return
+                tables = set(db.list_tables() or [])
+                if table_name != original and table_name in tables:
+                    notify("Table already exists")
+                    return
+                if original in tables:
+                    db.rebuild_table(original, table_name, columns)
+                else:
+                    db.create_table(table_name, columns)
+            else:
+                if table_name in (db.list_tables() or []):
+                    notify("Table already exists")
+                    return
+                db.create_table(table_name, columns)
+        except Exception:
+            Logger.exception("TableEditorForm: save failed")
+            notify("Save failed")
+            return
+
+        self._refresh_tables()
+        self.close()
+
+    def _collect_columns(self):
+        items = []
+        seen = set()
+        for item in self.column_items or []:
+            name = (item.get("name") or "").strip()
+            col_type = (item.get("col_type") or "").strip()
+            is_pk = bool(item.get("is_pk"))
+            source_name = (item.get("source_name") or "").strip() or None
+
+            if not name and not col_type and not is_pk:
+                continue
+            if not name:
+                notify("Column name is required")
+                return None
+            if not col_type:
+                col_type = "TEXT"
+
+            key = name.lower()
+            if key in seen:
+                notify("Duplicate column name")
+                return None
+            seen.add(key)
+
+            items.append(
+                {
+                    "name": name,
+                    "type": col_type,
+                    "is_pk": is_pk,
+                    "source_name": source_name,
+                }
+            )
+        if not items:
+            notify("Add at least one column")
+            return None
+        return items
+
+    def _columns_match_db(self, table_name: str, columns: list[dict]) -> bool:
+        app = App.get_running_app()
+        db = getattr(app, "db", None)
+        if not db:
+            return False
+        try:
+            current = db.describe_table(table_name) or []
+        except Exception:
+            return False
+        if len(current) != len(columns):
+            return False
+
+        for incoming, existing in zip(columns, current):
+            if self._normalize_name(incoming.get("name")) != self._normalize_name(existing.get("name")):
+                return False
+            if self._normalize_type(incoming.get("type")) != self._normalize_type(existing.get("type")):
+                return False
+            if bool(incoming.get("is_pk")) != bool(existing.get("pk")):
+                return False
+        return True
+
+    def _normalize_name(self, value) -> str:
+        return (value or "").strip().lower()
+
+    def _normalize_type(self, value) -> str:
+        text = " ".join(str(value or "").strip().split())
+        if not text:
+            return "TEXT"
+        return text.upper()
+
+    def _refresh_tables(self):
+        app = App.get_running_app()
+        root = getattr(app, "root", None)
+        if not root or not hasattr(root, "get_screen"):
+            return
+        try:
+            screen = root.get_screen("database")
+        except Exception:
+            return
+        if screen and hasattr(screen, "_refresh_tables"):
+            screen._refresh_tables()
+
+
+class ColumnField(RecycleDataViewBehavior, MDBoxLayout):
+    index = NumericProperty(-1)
+    name = StringProperty("")
+    col_type = StringProperty("")
+    is_pk = BooleanProperty(False)
+    _rv = None
+    _updating = False
+
+    def refresh_view_attrs(self, rv, index, data):
+        self._rv = rv
+        self.index = index
+        self._updating = True
+        result = super().refresh_view_attrs(rv, index, data)
+        self._updating = False
+        return result
+
+    def notify_name(self, value: str):
+        if self._updating:
+            return
+        self._update_data("name", value)
+
+    def notify_type(self, value: str):
+        if self._updating:
+            return
+        self._update_data("col_type", value)
+
+    def notify_pk(self, value: bool):
+        if self._updating:
+            return
+        self._update_data("is_pk", value)
+
+    def _update_data(self, field: str, value):
+        self._set_property(field, value)
+        rv = self._rv
+        if not rv:
+            return
+        if self.index < 0 or self.index >= len(rv.data):
+            return
+        rv.data[self.index][field] = value
+
+    def _set_property(self, field: str, value):
+        if getattr(self, field) == value:
+            return
+        self._updating = True
+        setattr(self, field, value)
+        self._updating = False
 
 class ValueInput(MDTextField):
     def __init__(self, column, value_id, **kw):
@@ -236,6 +513,15 @@ class TableItem(BoxLayout):
         pass
 
     def do_edit_table(self, table: str):
-        # TODO implement edit table functionality
-        notify("Not implemented")
-        pass
+        modal = self._get_table_editor_modal()
+        if not modal:
+            return
+        modal.open_existing_table(self.table_name or table)
+
+    def _get_table_editor_modal(self):
+        app = App.get_running_app()
+        modal = getattr(app, "_table_editor_modal", None)
+        if not modal:
+            modal = Factory.TableEditorForm()
+            app._table_editor_modal = modal
+        return modal
