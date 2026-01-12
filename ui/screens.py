@@ -24,11 +24,33 @@ from app.file_picker import AndroidDatabasePicker, PickResult, is_android
 from app.notify import notify
 
 
+def _clear_active_db(source: str) -> None:
+    app = App.get_running_app()
+    db = getattr(app, "db", None)
+    if not db:
+        return
+    close = getattr(db, "close", None)
+    if callable(close):
+        try:
+            close()
+        except Exception as exc:
+            Logger.exception("%s: failed to close database (%s)", source, exc)
+    else:
+        raw_db = getattr(db, "db", None)
+        if raw_db and hasattr(raw_db, "close"):
+            try:
+                raw_db.close()
+            except Exception as exc:
+                Logger.exception("%s: failed to close underlying database (%s)", source, exc)
+    app.db = None
+
+
 class HomeScreen(MDScreen):
     dialog = None
     _connect_form = None
 
     def on_pre_enter(self, *args):
+        _clear_active_db("HomeScreen")
         # preparing file manager or SAF picker
         if is_android():
             if not hasattr(self, "_android_picker"):
@@ -190,6 +212,7 @@ class DatabaseScreen(MDScreen):
         db = getattr(app, "db", None)
         if not db:
             self.table_items = []
+            self.db_label = "Database\nUnknown"
             return
 
         db_path = getattr(db, "db_path", None)
@@ -286,8 +309,7 @@ class DatabaseScreen(MDScreen):
 
     def action_home(self):
         if self.manager:
-            app = App.get_running_app()
-            app.db = None
+            _clear_active_db("DatabaseScreen")
             Logger.debug("DatabaseScreen: Navigating to home screen")
             self.manager.transition.direction = "right"
             self.manager.current = "home"
