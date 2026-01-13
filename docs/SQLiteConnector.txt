@@ -1,5 +1,5 @@
 
-Database API Documentation
+SQLite Connector API Documentation
 ==========================
 
 Класс `Database` представляет собой обертку над стандартным модулем `sqlite3` и предназначен для использования в мобильном приложении (например, на базе Kivy / KivyMD).

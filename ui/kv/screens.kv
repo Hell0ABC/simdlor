@@ -1,4 +1,5 @@
 #:kivy 2.1.0
+
 <HomeScreen>:
     name: "home"
     MDBoxLayout:
@@ -39,10 +40,44 @@
 
 <DatabaseScreen>:
     id: database_screen
-    MDBoxLayout:
-        id: db_box_layout
-        orientation: 'vertical'
 
+    FloatLayout:
+        MDBoxLayout:
+            # Main layout
+            orientation: "vertical"
+            size_hint: 1, 1
+            pos_hint: {"x": 0, "y": 0}
+
+            MDBoxLayout:
+                # Header
+                id: ds_header
+                md_bg_color: 0.502, 0.337, 0.702, 1 # TODO add flexible color support
+                size_hint: 1, .3
+
+                MDLabel:
+                    padding: "15dp"
+                    text: root.db_label
+
+            RecycleView:
+                id: ds_table_list
+                viewclass: 'TableItem'
+                data: root.table_items
+                size_hint_y: 1
+                RecycleBoxLayout:
+                    default_size: None, dp(56)
+                    default_size_hint: 1, None
+                    size_hint_y: None
+                    height: self.minimum_height
+                    orientation: 'vertical'
+                    
+                    
+            MDBoxLayout:
+                # Bottom
+                adaptive_height: True
+                padding: dp(10), dp(10)
+
+                SearchBar:
+                    id: search_bar
 
 
 <TableScreen>:

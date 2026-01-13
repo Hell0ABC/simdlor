@@ -5,10 +5,10 @@ from kivy.resources import resource_add_path
 from kivy.logger import Logger
 
 from ui.screens import LoadingScreen, TableScreen, DatabaseScreen, HomeScreen
-from app.config import KV_DIR, KV_APP, KV_SCREENS, KV_WIDGETS, BUILD_TYPE, LOG_LEVEL
+from app.config import KV_DIR, KV_SCREENS, KV_WIDGETS, BUILD_TYPE, LOG_LEVEL
 from app.storage import prepare_environment
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 class DatabaseApp(MDApp):
 
@@ -38,7 +38,6 @@ class DatabaseApp(MDApp):
             Builder.load_file(str(KV_WIDGETS))
         if KV_SCREENS.exists():
             Builder.load_file(str(KV_SCREENS))
-        Builder.load_file(str(KV_APP))
 
         sm = MDScreenManager()
         sm.add_widget(HomeScreen(name='home'))
